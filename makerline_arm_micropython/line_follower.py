@@ -22,6 +22,7 @@ class LineFollower:
         self._line_detect_start_time = 0
         self._has_triggered_on_current_line = False
         self._turn_start_time = 0
+        self.last_uart_char = None  # 追加: 最後に受信したQR/UART文字を保持
 
         self._last_step_time_us = time.ticks_us()
         # [FIX] Independent per-motor step schedulers for differential P-control
@@ -66,10 +67,13 @@ class LineFollower:
                 data = self._uart.read()
                 if data:
                     for b in data:
-                        if chr(b) == '1':
-                            print("[UART] Received '1' -> Triggering Left Turn.")
-                            self.start_turn_left()
-                        elif chr(b) == '0':
+                        char_data = chr(b)
+                        self.last_uart_char = char_data  # 状態遷移などで使えるように保存
+                        
+                        if char_data == '1':
+                            print("[UART] Received '1' (QR Code Detected)")
+                            # タスクモードのトリガーとして利用するため左旋回は無効化
+                        elif char_data == '0':
                             print("[UART] Received '0' -> Stopping cart.")
                             self.stop()
             except Exception:
