@@ -25,6 +25,7 @@ import sys   # システム情報取得およびエラー出力用標準モジ�
 # 自作制御モジュールのインポート
 from line_follower import LineFollower  # ライントレース・モーター駆動制御クラス
 from web_server import WebServer        # ブラウザ操作用ノンブロッキングWebサーバークラス
+from uart_sequence_controller import UARTSequenceController # UART受信回数に応じたシーケンス制御クラス
 
 
 def main():
@@ -45,6 +46,9 @@ def main():
     #   line_follower インスタンスへの参照を渡しています。
     web_server = WebServer(line_follower)
 
+    # UARTシーケンスコントローラーのインスタンス生成
+    sequence_controller = UARTSequenceController(line_follower)
+
 
 
     # -------------------------------------------------------------------------
@@ -55,6 +59,9 @@ def main():
 
     # Wi-Fiソケットの作成とバインド、HTTPリスニング待機状態への遷移
     web_server.begin()
+
+    # シーケンスコントローラーの開始
+    sequence_controller.begin()
 
 
 
@@ -74,6 +81,9 @@ def main():
             # --- タスク2: Webサーバーのリクエスト処理 ---
             # クライアントからの接続要求やHTTPリクエスト（REST API・UI画面配信）をノンブロッキングで処理します。
             web_server.update()
+
+            # --- タスク3: UART受信回数に応じた段階的動作シーケンス処理 ---
+            sequence_controller.update()
             
 
 
@@ -88,7 +98,7 @@ def main():
             # - 走行・トレース中 (TRACKING等):
             #   ステッピングモーターのパルス間隔（マイクロ秒単位）の乱れを防ぐため、
             #   最小限の10μsスリープのみを挟み、最大ループ速度を維持します。
-            if line_follower.get_state() == 0:  # 0: STATE_IDLE (停止/待機中)
+            if line_follower.get_state() == 0 and sequence_controller.get_state() == 0:  # 停止/待機中
                 time.sleep_ms(10)  # 10ミリ秒スリープ（省電力・他処理優先）
             else:
                 time.sleep_us(10)  # 10マイクロ秒スリープ（高精度パルス生成優先）
