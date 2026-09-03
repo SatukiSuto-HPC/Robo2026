@@ -86,11 +86,11 @@ def main():
                         qr_data = obj.data.decode('utf-8')
                         print(f"Data: {qr_data}")
 
-                    # UARTで '1' を送信 (左旋回トリガー)
+                    # UARTで '1' を送信 (QRコード検出トリガー)
                     if ser and ser.is_open:
                         try:
                             ser.write(b'1')
-                            print("Sent '1' via UART (Trigger Left Turn).")
+                            print("Sent '1' via UART to ESP32.")
                         except Exception as e:
                             print(f"[ERR] Lost connection during write: {e}")
                             ser.close()
