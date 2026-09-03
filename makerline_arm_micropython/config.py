@@ -51,6 +51,7 @@ AUTO_RESUME_TRACKING_AFTER_TEACH = True
 LINE_PASS_DURATION_MS = 600
 
 TURN_STEP_DELAY = 1200
+ARC_TURN_INNER_DELAY = 4000   # Inner wheel delay during arc turns (larger = slower inner wheel = tighter turn)
 MIN_TURN_DURATION_MS = 200
 MAX_TURN_DURATION_MS = 5000   # [FIX] Safety timeout: stop turning after 5s if line not found
 

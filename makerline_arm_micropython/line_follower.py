@@ -155,17 +155,19 @@ class LineFollower:
         left_forward = True
         right_forward = True
 
-        # Pivot turn (超信地旋回) for sharp corners
+        # Arc turn (信地旋回) for sharp corners
+        # Inner wheel slows down significantly while outer wheel drives forward
+        inner_delay = getattr(config, 'ARC_TURN_INNER_DELAY', config.MAX_STEP_DELAY)
         if self._sensor_error <= -3:
-            left_forward = False
+            left_forward = True
             right_forward = True
-            left_delay = config.TURN_STEP_DELAY
-            right_delay = config.TURN_STEP_DELAY
+            left_delay = inner_delay   # Inner wheel: very slow forward
+            right_delay = config.TURN_STEP_DELAY  # Outer wheel: normal turn speed
         elif self._sensor_error >= 3:
             left_forward = True
-            right_forward = False
-            left_delay = config.TURN_STEP_DELAY
-            right_delay = config.TURN_STEP_DELAY
+            right_forward = True
+            left_delay = config.TURN_STEP_DELAY  # Outer wheel: normal turn speed
+            right_delay = inner_delay   # Inner wheel: very slow forward
 
         return left_delay, right_delay, left_forward, right_forward
 
@@ -207,8 +209,17 @@ class LineFollower:
                 self._right_step.value(0)
 
     def execute_turn_left_step(self):
-        # [FIX] Reuse step_motors() with left_forward=False, right_forward=True
-        self.step_motors(False, True)
+        # Arc turn: left wheel stopped, right wheel forward for gradual left turn
+        invert = getattr(config, 'INVERT_MOTOR_DIRECTION', False)
+        fwd_val = 0 if invert else 1
+
+        self._left_dir.value(fwd_val)
+        self._right_dir.value(fwd_val)
+
+        # Only pulse the right (outer) motor to arc forward-left
+        self._right_step.value(1)
+        time.sleep_us(10)
+        self._right_step.value(0)
         time.sleep_us(config.TURN_STEP_DELAY)
 
     def step_motors(self, left_forward, right_forward):
