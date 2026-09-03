@@ -19,9 +19,6 @@ echo Uploading web_server.py...
 ampy -p COM15 -d 1 put web_server.py
 ping 127.0.0.1 -n 2 > nul
 
-echo Uploading uart_relay.py...
-ampy -p COM15 -d 1 put uart_relay.py
-ping 127.0.0.1 -n 2 > nul
 
 echo Uploading index.html...
 ampy -p COM15 -d 1 put index.html

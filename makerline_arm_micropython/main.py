@@ -17,8 +17,6 @@
 # 2. WebServer (web_server.py):
 #    - Wi-Fi AP/STAモードでの非同期Webサーバー (ポート80)
 #    - ブラウザUIからの走行開始/停止、パラメータ調整、ステータス監視
-# 3. UARTRelay (uart_relay.py):
-#    - Raspberry Pi (QRコード・上位判断) と Arduino Uno (アームサーボ制御) 間のシリアル中継
 # =============================================================================
 
 import time  # 時間計測およびウェイト（sleep）用標準モジュール
@@ -27,7 +25,6 @@ import sys   # システム情報取得およびエラー出力用標準モジ�
 # 自作制御モジュールのインポート
 from line_follower import LineFollower  # ライントレース・モーター駆動制御クラス
 from web_server import WebServer        # ブラウザ操作用ノンブロッキングWebサーバークラス
-from uart_relay import UARTRelay        # Raspberry Pi ⇔ Arduino Uno 間のUART中継クラス
 
 
 def main():
@@ -48,8 +45,7 @@ def main():
     #   line_follower インスタンスへの参照を渡しています。
     web_server = WebServer(line_follower)
 
-    # UART中継クラスのインスタンス生成（RPi ⇔ ESP32 ⇔ Arduino Uno 間の通信用）
-    uart_relay = UARTRelay()
+
 
     # -------------------------------------------------------------------------
     # 2. ハードウェア・ペリフェラルの初期化と通信開始 (Begin Hardware)
@@ -60,8 +56,7 @@ def main():
     # Wi-Fiソケットの作成とバインド、HTTPリスニング待機状態への遷移
     web_server.begin()
 
-    # 各UARTポート（UART1, UART2）のボーレート・ピン設定とバッファ確保
-    uart_relay.begin()
+
 
     print("[MAIN LOOP] Entering cooperative multitasking loop...")
 
@@ -80,9 +75,7 @@ def main():
             # クライアントからの接続要求やHTTPリクエスト（REST API・UI画面配信）をノンブロッキングで処理します。
             web_server.update()
             
-            # --- タスク3: UART通信の中継 ---
-            # Raspberry PiからのQRコード情報やコマンドを受信し、Arduino Uno（ロボットアーム）等へ転送します。
-            uart_relay.update()
+
 
             # --- タスク4: CPU資源の譲渡（Cooperative Yield） ---
             # マイコンのバックグラウンド処理（Wi-FiスタックやGC等）が詰まるのを防ぐため、
