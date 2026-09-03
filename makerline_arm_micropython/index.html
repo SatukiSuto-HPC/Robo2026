@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MakerLine Arm & Tracer Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --accent-hover: #0ea5e9;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; min-height: 100vh; }
+        header { text-align: center; margin-bottom: 25px; }
+        header h1 { font-size: 1.8rem; color: var(--accent-color); margin-bottom: 5px; }
+        header p { color: var(--text-muted); font-size: 0.9rem; }
+        .container { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media(max-width: 768px) { .container { grid-template-columns: 1fr; } }
+        .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); }
+        .card h2 { font-size: 1.2rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; color: var(--accent-color); }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; }
+        input[type="number"], input[type="text"] { width: 100%; padding: 8px 12px; background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); font-size: 1rem; }
+        .btn-row { display: flex; gap: 10px; margin-top: 10px; }
+        button { flex: 1; padding: 10px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; color: white; background-color: var(--accent-color); }
+        button:hover { background-color: var(--accent-hover); }
+        button:active { transform: scale(0.98); }
+        button.btn-success { background-color: var(--success); }
+        button.btn-success:hover { background-color: #16a34a; }
+        button.btn-danger { background-color: var(--danger); }
+        button.btn-danger:hover { background-color: #dc2626; }
+        button.btn-warning { background-color: var(--warning); }
+        button.btn-warning:hover { background-color: #d97706; }
+        .telemetry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem; }
+        .telemetry-item { background: var(--bg-color); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .telemetry-item span { display: block; color: var(--text-muted); font-size: 0.75rem; }
+        .telemetry-item strong { font-size: 1.1rem; color: var(--accent-color); }
+        .sensor-bar { display: flex; gap: 5px; margin-top: 10px; }
+        .sensor-box { flex: 1; height: 30px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8rem; }
+        .sensor-box.active { background: var(--success); color: black; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>MakerLine & Arm Dashboard</h1>
+        <p>MicroPython ESP32 Control Center</p>
+    </header>
+    <div class="container">
+        <!-- Telemetry Card -->
+        <div class="card">
+            <h2>Telemetry & Status</h2>
+            <div class="telemetry-grid">
+                <div class="telemetry-item"><span>State</span><strong id="st-state">IDLE</strong></div>
+                <div class="telemetry-item"><span>Line Pattern</span><strong id="st-pattern">0x0</strong></div>
+                <div class="telemetry-item"><span>Base Delay</span><strong id="st-delay">1200</strong></div>
+                <div class="telemetry-item"><span>Motor Trim</span><strong id="st-trim">0</strong></div>
+            </div>
+            <div style="margin-top: 15px;">
+                <label>4-Sensor Status (S3 .. S0)</label>
+                <div class="sensor-bar">
+                    <div id="s3" class="sensor-box">S3</div>
+                    <div id="s2" class="sensor-box">S2</div>
+                    <div id="s1" class="sensor-box">S1</div>
+                    <div id="s0" class="sensor-box">S0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Line Follower Control -->
+        <div class="card">
+            <h2>Line Tracer Control</h2>
+            <div class="control-group btn-row">
+                <button class="btn-success" onclick="sendCmd('START')">START</button>
+                <button class="btn-danger" onclick="sendCmd('STOP')">STOP</button>
+            </div>
+            <div class="control-group" style="margin-top: 15px;">
+                <label>Base Step Delay (us)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="base-delay" value="1200">
+                    <button onclick="updateParam('delay', document.getElementById('base-delay').value)">Set</button>
+                </div>
+            </div>
+            <div class="control-group" style="margin-top: 15px;">
+                <label>Motor Trim (+: Left Fast, -: Right Fast)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="motor-trim" value="0">
+                    <button onclick="updateParam('trim', document.getElementById('motor-trim').value)">Set Trim</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function sendCmd(cmd) {
+            fetch('/api/command', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({command: cmd})
+            }).then(r => r.json()).then(d => console.log(d));
+        }
+        function updateParam(param, val) {
+            fetch('/api/param', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({param: param, value: parseInt(val)})
+            }).then(r => r.json()).then(d => console.log(d));
+        }
+        function pollStatus() {
+            fetch('/api/status').then(r => r.json()).then(d => {
+                document.getElementById('st-state').innerText = d.state;
+                document.getElementById('st-pattern').innerText = "0x" + d.pattern.toString(16).toUpperCase();
+                if (d.base_delay !== undefined) {
+                    document.getElementById('st-delay').innerText = d.base_delay;
+                }
+                if (d.trim !== undefined) {
+                    document.getElementById('st-trim').innerText = d.trim;
+                }
+
+                let p = d.pattern;
+                document.getElementById('s3').className = "sensor-box " + ((p & 8) ? "active" : "");
+                document.getElementById('s2').className = "sensor-box " + ((p & 4) ? "active" : "");
+                document.getElementById('s1').className = "sensor-box " + ((p & 2) ? "active" : "");
+                document.getElementById('s0').className = "sensor-box " + ((p & 1) ? "active" : "");
+            }).catch(err => console.log(err));
+        }
+        setInterval(pollStatus, 1000);
+    </script>
+</body>
+</html>

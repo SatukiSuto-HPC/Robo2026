@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIモデル コード解析能力評価 — MakerLine Arm MicroPython</title>
+  <style>
+    :root {
+      --bg: #080b14;
+      --surface: #0f1623;
+      --surface2: #17202f;
+      --surface3: #1e2a3d;
+      --border: #1e2d45;
+      --text: #dde4f0;
+      --text-muted: #6b7fa0;
+      --accent: #4f9cf9;
+
+      --claude-h: #f59e0b;
+      --claude-m: rgba(245,158,11,0.15);
+      --claude-b: rgba(245,158,11,0.3);
+
+      --gemini-h: #3b82f6;
+      --gemini-m: rgba(59,130,246,0.15);
+      --gemini-b: rgba(59,130,246,0.3);
+
+      --opencode-h: #a855f7;
+      --opencode-m: rgba(168,85,247,0.15);
+      --opencode-b: rgba(168,85,247,0.3);
+
+      --qwen-h: #10b981;
+      --qwen-m: rgba(16,185,129,0.15);
+      --qwen-b: rgba(16,185,129,0.3);
+
+      --gold: #f59e0b;
+      --silver: #94a3b8;
+      --bronze: #cd7c4b;
+
+      --red: #f87171;
+      --orange: #fb923c;
+      --yellow: #fbbf24;
+      --green: #34d399;
+      --teal: #22d3ee;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+
+    /* ─── HEADER ─── */
+    header {
+      background: linear-gradient(160deg, #0d1f3c 0%, #080b14 60%);
+      border-bottom: 1px solid var(--border);
+      padding: 3rem 2rem 2.5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 300px;
+      background: radial-gradient(ellipse, rgba(79,156,249,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    header h1 { font-size: 2.1rem; font-weight: 800; background: linear-gradient(90deg, #60a5fa, #a78bfa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+    header .subtitle { color: var(--text-muted); font-size: 0.9rem; }
+    header .meta-row { display: flex; gap: 1.5rem; justify-content: center; margin-top: 1.2rem; flex-wrap: wrap; }
+    .meta-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 0.3rem 0.9rem; font-size: 0.78rem; color: var(--text-muted); }
+
+    /* ─── NAV ─── */
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(8,11,20,0.96); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; }
+    nav a { color: var(--text-muted); text-decoration: none; padding: 0.9rem 1.1rem; font-size: 0.82rem; font-weight: 500; white-space: nowrap; border-bottom: 2px solid transparent; transition: all .2s; }
+    nav a:hover { color: var(--text); border-bottom-color: var(--accent); }
+
+    /* ─── LAYOUT ─── */
+    main { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    section { margin-bottom: 4rem; }
+    h2 { font-size: 1.35rem; font-weight: 700; margin-bottom: 1.4rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); color: var(--text); display: flex; align-items: center; gap: 0.5rem; }
+    h3 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.6rem; color: var(--accent); }
+    p { color: var(--text); margin-bottom: 0.6rem; }
+
+    /* ─── RANKING PODIUM ─── */
+    .podium { display: flex; align-items: flex-end; justify-content: center; gap: 1rem; margin: 2rem 0; flex-wrap: wrap; }
+    .podium-item { text-align: center; flex: 1; min-width: 140px; max-width: 200px; }
+    .podium-block { border-radius: 10px 10px 0 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 1rem; }
+    .podium-block.rank1 { height: 160px; background: linear-gradient(180deg, rgba(245,158,11,0.25), rgba(245,158,11,0.08)); border: 1px solid rgba(245,158,11,0.4); }
+    .podium-block.rank2 { height: 120px; background: linear-gradient(180deg, rgba(16,185,129,0.2), rgba(16,185,129,0.06)); border: 1px solid rgba(16,185,129,0.35); }
+    .podium-block.rank3 { height: 100px; background: linear-gradient(180deg, rgba(59,130,246,0.2), rgba(59,130,246,0.06)); border: 1px solid rgba(59,130,246,0.35); }
+    .podium-block.rank4 { height: 80px; background: linear-gradient(180deg, rgba(168,85,247,0.15), rgba(168,85,247,0.05)); border: 1px solid rgba(168,85,247,0.3); }
+    .podium-rank { font-size: 1.6rem; margin-bottom: 0.3rem; }
+    .podium-score { font-size: 1.5rem; font-weight: 800; }
+    .podium-score.rank1 { color: var(--gold); }
+    .podium-score.rank2 { color: var(--green); }
+    .podium-score.rank3 { color: var(--gemini-h); }
+    .podium-score.rank4 { color: var(--opencode-h); }
+    .podium-label { margin-top: 0.5rem; font-size: 0.82rem; font-weight: 600; }
+    .podium-label.rank1 { color: var(--gold); }
+    .podium-label.rank2 { color: var(--green); }
+    .podium-label.rank3 { color: var(--gemini-h); }
+    .podium-label.rank4 { color: var(--opencode-h); }
+    .podium-sublabel { font-size: 0.72rem; color: var(--text-muted); }
+
+    /* ─── SCORE CARDS ─── */
+    .score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
+    .score-card { border-radius: 12px; padding: 1.4rem; position: relative; overflow: hidden; }
+    .score-card.claude   { background: var(--claude-m);   border: 1px solid var(--claude-b); }
+    .score-card.gemini   { background: var(--gemini-m);   border: 1px solid var(--gemini-b); }
+    .score-card.opencode { background: var(--opencode-m); border: 1px solid var(--opencode-b); }
+    .score-card.qwen     { background: var(--qwen-m);     border: 1px solid var(--qwen-b); }
+    .score-card .model-name { font-size: 0.8rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 0.8rem; }
+    .score-card.claude   .model-name { color: var(--claude-h); }
+    .score-card.gemini   .model-name { color: var(--gemini-h); }
+    .score-card.opencode .model-name { color: var(--opencode-h); }
+    .score-card.qwen     .model-name { color: var(--qwen-h); }
+    .score-card .total-score { font-size: 3rem; font-weight: 900; line-height: 1; margin-bottom: 0.3rem; }
+    .score-card.claude   .total-score { color: var(--claude-h); }
+    .score-card.gemini   .total-score { color: var(--gemini-h); }
+    .score-card.opencode .total-score { color: var(--opencode-h); }
+    .score-card.qwen     .total-score { color: var(--qwen-h); }
+    .score-card .score-max { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .score-card .rank-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.72rem; font-weight: 700; }
+    .rank-1 { background: rgba(245,158,11,0.25); color: var(--gold); border: 1px solid rgba(245,158,11,0.4); }
+    .rank-2 { background: rgba(16,185,129,0.2); color: var(--green); border: 1px solid rgba(16,185,129,0.35); }
+    .rank-3 { background: rgba(59,130,246,0.2); color: var(--gemini-h); border: 1px solid rgba(59,130,246,0.35); }
+    .rank-4 { background: rgba(168,85,247,0.18); color: var(--opencode-h); border: 1px solid rgba(168,85,247,0.3); }
+    .mini-bars { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.45rem; }
+    .mini-bar-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; }
+    .mini-bar-label { width: 80px; color: var(--text-muted); flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mini-bar-track { flex: 1; height: 5px; background: rgba(255,255,255,0.07); border-radius: 999px; }
+    .mini-bar-fill { height: 100%; border-radius: 999px; }
+    .mini-bar-val { width: 24px; text-align: right; color: var(--text-muted); flex-shrink: 0; }
+    .score-card.claude   .mini-bar-fill { background: var(--claude-h); }
+    .score-card.gemini   .mini-bar-fill { background: var(--gemini-h); }
+    .score-card.opencode .mini-bar-fill { background: var(--opencode-h); }
+    .score-card.qwen     .mini-bar-fill { background: var(--qwen-h); }
+
+    /* ─── RADAR ─── */
+    .radar-wrap { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; margin: 2rem 0; }
+    .radar-container { position: relative; }
+    svg.radar { display: block; }
+
+    /* ─── AXIS COMPARISON TABLE ─── */
+    .axis-table-wrap { overflow-x: auto; }
+    .axis-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    .axis-table th { background: var(--surface2); color: var(--accent); padding: 0.7rem 1rem; text-align: left; border: 1px solid var(--border); white-space: nowrap; font-size: 0.8rem; }
+    .axis-table td { padding: 0.65rem 1rem; border: 1px solid var(--border); vertical-align: middle; }
+    .axis-table tr:nth-child(even) td { background: var(--surface2); }
+    .axis-table tr:hover td { background: rgba(79,156,249,0.04); }
+    .axis-name { font-weight: 600; white-space: nowrap; }
+    .bar-cell { min-width: 120px; }
+    .bar-in-cell { display: flex; align-items: center; gap: 0.5rem; }
+    .bar-track { flex: 1; height: 8px; background: rgba(255,255,255,0.07); border-radius: 999px; }
+    .bar-fill { height: 100%; border-radius: 999px; }
+    .b-claude   { background: var(--claude-h); }
+    .b-gemini   { background: var(--gemini-h); }
+    .b-opencode { background: var(--opencode-h); }
+    .b-qwen     { background: var(--qwen-h); }
+    .score-num { font-weight: 700; font-size: 0.88rem; }
+    .sn-claude   { color: var(--claude-h); }
+    .sn-gemini   { color: var(--gemini-h); }
+    .sn-opencode { color: var(--opencode-h); }
+    .sn-qwen     { color: var(--qwen-h); }
+
+    /* ─── BADGE ─── */
+    .badge { display: inline-block; padding: 0.18rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700; }
+    .badge-claude   { background: rgba(245,158,11,.2);  color: var(--claude-h);   border: 1px solid var(--claude-b); }
+    .badge-gemini   { background: rgba(59,130,246,.2);  color: var(--gemini-h);   border: 1px solid var(--gemini-b); }
+    .badge-opencode { background: rgba(168,85,247,.2);  color: var(--opencode-h); border: 1px solid var(--opencode-b); }
+    .badge-qwen     { background: rgba(16,185,129,.2);  color: var(--qwen-h);     border: 1px solid var(--qwen-b); }
+
+    /* ─── FIND CARDS ─── */
+    .find-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+    .find-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem; }
+    .find-card h4 { font-size: 0.88rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .find-card p { font-size: 0.82rem; color: var(--text-muted); margin: 0; }
+    .find-exclusive { border-left: 3px solid; }
+    .fe-claude   { border-left-color: var(--claude-h); }
+    .fe-gemini   { border-left-color: var(--gemini-h); }
+    .fe-opencode { border-left-color: var(--opencode-h); }
+    .fe-qwen     { border-left-color: var(--qwen-h); }
+
+    /* ─── VERDICT ─── */
+    .verdict-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.2rem; }
+    .verdict-card { border-radius: 12px; padding: 1.3rem; }
+    .verdict-card.claude   { background: var(--claude-m);   border: 1px solid var(--claude-b); }
+    .verdict-card.gemini   { background: var(--gemini-m);   border: 1px solid var(--gemini-b); }
+    .verdict-card.opencode { background: var(--opencode-m); border: 1px solid var(--opencode-b); }
+    .verdict-card.qwen     { background: var(--qwen-m);     border: 1px solid var(--qwen-b); }
+    .verdict-header { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.9rem; }
+    .verdict-icon { font-size: 1.5rem; }
+    .verdict-title { font-size: 0.85rem; font-weight: 700; }
+    .verdict-card.claude   .verdict-title { color: var(--claude-h); }
+    .verdict-card.gemini   .verdict-title { color: var(--gemini-h); }
+    .verdict-card.opencode .verdict-title { color: var(--opencode-h); }
+    .verdict-card.qwen     .verdict-title { color: var(--qwen-h); }
+    .verdict-tag { font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; margin-left: auto; }
+    .vt-claude   { background: rgba(245,158,11,.2); color: var(--claude-h); }
+    .vt-gemini   { background: rgba(59,130,246,.2); color: var(--gemini-h); }
+    .vt-opencode { background: rgba(168,85,247,.2); color: var(--opencode-h); }
+    .vt-qwen     { background: rgba(16,185,129,.2); color: var(--qwen-h); }
+    .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin-top: 0.5rem; }
+    .pros, .cons { background: rgba(0,0,0,0.2); border-radius: 7px; padding: 0.65rem; }
+    .pros h5 { color: var(--green); font-size: 0.73rem; margin-bottom: 0.4rem; }
+    .cons h5 { color: var(--red); font-size: 0.73rem; margin-bottom: 0.4rem; }
+    .pros ul, .cons ul { padding-left: 1rem; list-style: disc; }
+    .pros li, .cons li { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.2rem; }
+
+    /* ─── USE CASE TABLE ─── */
+    .uc-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    .uc-table th { background: var(--surface2); color: var(--accent); padding: 0.7rem 1rem; border: 1px solid var(--border); text-align: left; }
+    .uc-table td { padding: 0.7rem 1rem; border: 1px solid var(--border); vertical-align: top; }
+    .uc-table tr:nth-child(even) td { background: var(--surface2); }
+    .star { color: var(--gold); }
+    .star-dim { color: var(--surface3); }
+
+    /* ─── CHART BARS ─── */
+    .hbar-chart { display: flex; flex-direction: column; gap: 0.6rem; }
+    .hbar-row { display: flex; align-items: center; gap: 0.8rem; }
+    .hbar-label { width: 90px; font-size: 0.78rem; color: var(--text-muted); text-align: right; flex-shrink: 0; }
+    .hbar-track { flex: 1; height: 22px; background: rgba(255,255,255,0.05); border-radius: 6px; position: relative; overflow: hidden; }
+    .hbar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; padding-left: 0.5rem; font-size: 0.72rem; font-weight: 700; transition: width 0.6s ease; }
+    .hbar-fill.claude   { background: linear-gradient(90deg, rgba(245,158,11,0.9), rgba(245,158,11,0.5)); color: #fff; }
+    .hbar-fill.gemini   { background: linear-gradient(90deg, rgba(59,130,246,0.9), rgba(59,130,246,0.5)); color: #fff; }
+    .hbar-fill.opencode { background: linear-gradient(90deg, rgba(168,85,247,0.9), rgba(168,85,247,0.5)); color: #fff; }
+    .hbar-fill.qwen     { background: linear-gradient(90deg, rgba(16,185,129,0.9), rgba(16,185,129,0.5)); color: #fff; }
+
+    /* ─── UTIL ─── */
+    .note { background: rgba(79,156,249,.07); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 0.7rem 1rem; font-size: 0.85rem; color: var(--text-muted); margin: 0.8rem 0; }
+    .chip { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; background: var(--surface3); color: var(--text-muted); margin: 0.1rem; }
+    table { border-spacing: 0; }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; padding: 2rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+    .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.6rem; margin: 1rem 0 2rem; }
+    .toc-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 1rem; font-size: 0.82rem; color: var(--text-muted); text-decoration: none; display: block; transition: border-color .2s, color .2s; }
+    .toc-item:hover { border-color: var(--accent); color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <h1>🏆 AIモデル コード解析能力 評価レポート</h1>
+  <p class="subtitle">MakerLine Arm MicroPython (ESP32) 静的解析タスクによる比較評価</p>
+  <div class="meta-row">
+    <span class="meta-chip">📅 評価日: 2026-09-02</span>
+    <span class="meta-chip">📁 対象: 9ファイル / 914行</span>
+    <span class="meta-chip">🔬 方法: 静的解析のみ (ビルドなし)</span>
+    <span class="meta-chip">⚖️ 評価軸: 8項目 / 各10点満点</span>
+  </div>
+</header>
+
+<!-- ═══ NAV ═══ -->
+<nav>
+  <a href="#overview">🏆 総合順位</a>
+  <a href="#radar">📡 レーダー</a>
+  <a href="#axes">📊 軸別評価</a>
+  <a href="#exclusive">🔍 独自発見</a>
+  <a href="#verdict">📋 総評</a>
+  <a href="#usecase">💡 用途別推奨</a>
+</nav>
+
+<main>
+
+<!-- ═══ OVERVIEW ═══ -->
+<section id="overview">
+  <h2>🏆 総合順位</h2>
+
+  <!-- PODIUM -->
+  <div class="podium">
+    <div class="podium-item">
+      <div class="podium-block rank2">
+        <div class="podium-rank">🥈</div>
+        <div class="podium-score rank2">73</div>
+        <div style="font-size:0.7rem;color:var(--text-muted)">/80点</div>
+      </div>
+      <div class="podium-label rank2">Qwen3.8-27B</div>
+      <div class="podium-sublabel">独自発見 最多</div>
+    </div>
+    <div class="podium-item">
+      <div class="podium-block rank1">
+        <div class="podium-rank">🥇</div>
+        <div class="podium-score rank1">76</div>
+        <div style="font-size:0.7rem;color:var(--text-muted)">/80点</div>
+      </div>
+      <div class="podium-label rank1">Claude Sonnet<br>4.6 Thinking</div>
+      <div class="podium-sublabel">報告品質 最高</div>
+    </div>
+    <div class="podium-item">
+      <div class="podium-block rank3">
+        <div class="podium-rank">🥉</div>
+        <div class="podium-score rank3">70</div>
+        <div style="font-size:0.7rem;color:var(--text-muted)">/80点</div>
+      </div>
+      <div class="podium-label rank3">Gemini 3.7 Flash</div>
+      <div class="podium-sublabel">修正提案 最も具体的</div>
+    </div>
+    <div class="podium-item">
+      <div class="podium-block rank4">
+        <div class="podium-rank">4位</div>
+        <div class="podium-score rank4">60</div>
+        <div style="font-size:0.7rem;color:var(--text-muted)">/80点</div>
+      </div>
+      <div class="podium-label rank4">OpenCode<br>AI Agent</div>
+      <div class="podium-sublabel">実用性 重視</div>
+    </div>
+  </div>
+
+  <!-- SCORE CARDS -->
+  <div class="score-grid">
+    <!-- Claude -->
+    <div class="score-card claude">
+      <div class="model-name">Claude Sonnet 4.6 Thinking</div>
+      <div class="total-score">76</div>
+      <div class="score-max">/ 80点 &nbsp;<span class="rank-badge rank-1">🥇 1位</span></div>
+      <div class="mini-bars">
+        <div class="mini-bar-row"><span class="mini-bar-label">バグ発見数</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:90%"></div></div><span class="mini-bar-val">9</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">分析の深さ</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:100%"></div></div><span class="mini-bar-val">10</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">修正具体性</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:90%"></div></div><span class="mini-bar-val">9</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">報告品質</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:100%"></div></div><span class="mini-bar-val">10</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">HW理解</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:90%"></div></div><span class="mini-bar-val">9</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">誤検知率</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div><span class="mini-bar-val">8</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">優先度付け</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:100%"></div></div><span class="mini-bar-val">10</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">独自発見</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:70%"></div></div><span class="mini-bar-val">7</span></div>
+      </div>
+    </div>
+    <!-- Qwen -->
+    <div class="score-card qwen">
+      <div class="model-name">Qwen3.8-27B</div>
+      <div class="total-score">73</div>
+      <div class="score-max">/ 80点 &nbsp;<span class="rank-badge rank-2">🥈 2位</span></div>
+      <div class="mini-bars">
+        <div class="mini-bar-row"><span class="mini-bar-label">バグ発見数</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:100%"></div></div><span class="mini-bar-val">10</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">分析の深さ</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:90%"></div></div><span class="mini-bar-val">9</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">修正具体性</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:90%"></div></div><span class="mini-bar-val">9</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">報告品質</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div><span class="mini-bar-val">8</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">HW理解</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:100%"></div></div><span class="mini-bar-val">10</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">誤検知率</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:90%"></div></div><span class="mini-bar-val">9</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">優先度付け</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div><span class="mini-bar-val">8</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">独自発見</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:100%"></div></div><span class="mini-bar-val">10</span></div>
+      </div>
+    </div>
+    <!-- Gemini -->
+    <div class="score-card gemini">
+      <div class="model-name">Gemini 3.7 Flash</div>
+      <div class="total-score">70</div>
+      <div class="score-max">/ 80点 &nbsp;<span class="rank-badge rank-3">🥉 3位</span></div>
+      <div class="mini-bars">
+        <div class="mini-bar-row"><span class="mini-bar-label">バグ発見数</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:70%"></div></div><span class="mini-bar-val">7</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">分析の深さ</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div><span class="mini-bar-val">8</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">修正具体性</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:100%"></div></div><span class="mini-bar-val">10</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">報告品質</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:90%"></div></div><span class="mini-bar-val">9</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">HW理解</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:90%"></div></div><span class="mini-bar-val">9</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">誤検知率</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:90%"></div></div><span class="mini-bar-val">9</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">優先度付け</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div><span class="mini-bar-val">8</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">独自発見</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div><span class="mini-bar-val">8</span></div>
+      </div>
+    </div>
+    <!-- OpenCode -->
+    <div class="score-card opencode">
+      <div class="model-name">OpenCode AI Agent</div>
+      <div class="total-score">60</div>
+      <div class="score-max">/ 80点 &nbsp;<span class="rank-badge rank-4">4位</span></div>
+      <div class="mini-bars">
+        <div class="mini-bar-row"><span class="mini-bar-label">バグ発見数</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:60%"></div></div><span class="mini-bar-val">6</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">分析の深さ</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:60%"></div></div><span class="mini-bar-val">6</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">修正具体性</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div><span class="mini-bar-val">8</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">報告品質</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div><span class="mini-bar-val">8</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">HW理解</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:60%"></div></div><span class="mini-bar-val">6</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">誤検知率</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div><span class="mini-bar-val">8</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">優先度付け</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width">70%"></div></div><span class="mini-bar-val">7</span></div>
+        <div class="mini-bar-row"><span class="mini-bar-label">独自発見</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:70%"></div></div><span class="mini-bar-val">7</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>評価方法</strong>: 各AIが提出したレポートを8つの評価軸で採点（各10点満点）。バグの重複発見は共通得点として減算せず、独自性・深さ・実用性を重視。
+  </div>
+</section>
+
+<!-- ═══ RADAR ═══ -->
+<section id="radar">
+  <h2>📡 8軸レーダーチャート比較</h2>
+  <div class="radar-wrap">
+    <svg class="radar" width="520" height="520" viewBox="0 0 520 520">
+      <defs>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- grid circles -->
+      <g transform="translate(260,260)">
+        <circle r="104" fill="none" stroke="#1e2d45" stroke-width="1"/>
+        <circle r="78" fill="none" stroke="#1e2d45" stroke-width="1"/>
+        <circle r="52" fill="none" stroke="#1e2d45" stroke-width="1"/>
+        <circle r="26" fill="none" stroke="#1e2d45" stroke-width="1"/>
+        <circle r="104" fill="none" stroke="#253448" stroke-width="0.5"/>
+
+        <!-- axis lines (8 axes, 45° each) -->
+        <!-- 0°=top=バグ発見数, 45°=分析深さ, 90°=修正具体性, 135°=報告品質, 180°=HW理解, 225°=誤検知率, 270°=優先度付け, 315°=独自発見 -->
+        <line x1="0" y1="0" x2="0" y2="-104" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="0" y1="0" x2="73.5" y2="-73.5" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="0" y1="0" x2="104" y2="0" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="0" y1="0" x2="73.5" y2="73.5" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="0" y1="0" x2="0" y2="104" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="0" y1="0" x2="-73.5" y2="73.5" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="0" y1="0" x2="-104" y2="0" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="0" y1="0" x2="-73.5" y2="-73.5" stroke="#1e2d45" stroke-width="1"/>
+
+        <!-- axis labels -->
+        <text x="0" y="-115" text-anchor="middle" fill="#6b7fa0" font-size="11">バグ発見数</text>
+        <text x="82" y="-82" text-anchor="start" fill="#6b7fa0" font-size="11">分析の深さ</text>
+        <text x="114" y="4" text-anchor="start" fill="#6b7fa0" font-size="11">修正具体性</text>
+        <text x="82" y="88" text-anchor="start" fill="#6b7fa0" font-size="11">報告品質</text>
+        <text x="0" y="122" text-anchor="middle" fill="#6b7fa0" font-size="11">HW理解</text>
+        <text x="-82" y="88" text-anchor="end" fill="#6b7fa0" font-size="11">誤検知率</text>
+        <text x="-114" y="4" text-anchor="end" fill="#6b7fa0" font-size="11">優先度付け</text>
+        <text x="-82" y="-82" text-anchor="end" fill="#6b7fa0" font-size="11">独自発見</text>
+
+        <!-- scale labels -->
+        <text x="4" y="-26" fill="#2e3d55" font-size="9">2.5</text>
+        <text x="4" y="-52" fill="#2e3d55" font-size="9">5</text>
+        <text x="4" y="-78" fill="#2e3d55" font-size="9">7.5</text>
+        <text x="4" y="-104" fill="#2e3d55" font-size="9">10</text>
+
+        <!-- helper: scale factor = 10.4 per unit (max=104px at 10) -->
+        <!-- Claude: 9,10,9,10,9,8,10,7 -->
+        <!-- pts: (0,-93.6), (67.6,-67.6), (93.6,0), (73.5,73.5), (0,93.6), (-58.5,58.5), (-104,0), (-50.9,-50.9) -->
+        <polygon
+          points="0,-93.6 67.6,-67.6 93.6,0 73.5,73.5 0,93.6 -58.5,58.5 -104,0 -50.9,-50.9"
+          fill="rgba(245,158,11,0.15)" stroke="rgba(245,158,11,0.8)" stroke-width="1.5"
+          filter="url(#glow)"/>
+
+        <!-- Qwen: 10,9,9,8,10,9,8,10 -->
+        <!-- pts: (0,-104),(65.7,-65.7),(93.6,0),(58.5,58.5),(0,104),(-65.7,65.7),(-83.2,0),(-72.8,-72.8) -->
+        <polygon
+          points="0,-104 65.7,-65.7 93.6,0 58.5,58.5 0,104 -65.7,65.7 -83.2,0 -72.8,-72.8"
+          fill="rgba(16,185,129,0.1)" stroke="rgba(16,185,129,0.8)" stroke-width="1.5"
+          filter="url(#glow)"/>
+
+        <!-- Gemini: 7,8,10,9,9,9,8,8 -->
+        <!-- pts: (0,-72.8),(58.5,-58.5),(104,0),(65.7,65.7),(0,93.6),(-65.7,65.7),(-83.2,0),(-58.5,-58.5) -->
+        <polygon
+          points="0,-72.8 58.5,-58.5 104,0 65.7,65.7 0,93.6 -65.7,65.7 -83.2,0 -58.5,-58.5"
+          fill="rgba(59,130,246,0.1)" stroke="rgba(59,130,246,0.8)" stroke-width="1.5"
+          filter="url(#glow)"/>
+
+        <!-- OpenCode: 6,6,8,8,6,8,7,7 -->
+        <!-- pts: (0,-62.4),(43.7,-43.7),(83.2,0),(58.5,58.5),(0,62.4),(-58.5,58.5),(-72.8,0),(-51,-51) -->
+        <polygon
+          points="0,-62.4 43.7,-43.7 83.2,0 58.5,58.5 0,62.4 -58.5,58.5 -72.8,0 -51,-51"
+          fill="rgba(168,85,247,0.1)" stroke="rgba(168,85,247,0.7)" stroke-width="1.5"
+          filter="url(#glow)"/>
+
+        <!-- dots -->
+        <circle cx="0" cy="-93.6" r="3.5" fill="#f59e0b"/>
+        <circle cx="67.6" cy="-67.6" r="3.5" fill="#f59e0b"/>
+        <circle cx="93.6" cy="0" r="3.5" fill="#f59e0b"/>
+        <circle cx="73.5" cy="73.5" r="3.5" fill="#f59e0b"/>
+        <circle cx="0" cy="93.6" r="3.5" fill="#f59e0b"/>
+        <circle cx="-58.5" cy="58.5" r="3.5" fill="#f59e0b"/>
+        <circle cx="-104" cy="0" r="3.5" fill="#f59e0b"/>
+        <circle cx="-50.9" cy="-50.9" r="3.5" fill="#f59e0b"/>
+
+        <circle cx="0" cy="-104" r="3.5" fill="#10b981"/>
+        <circle cx="65.7" cy="-65.7" r="3.5" fill="#10b981"/>
+        <circle cx="93.6" cy="0" r="3.5" fill="#10b981"/>
+        <circle cx="58.5" cy="58.5" r="3.5" fill="#10b981"/>
+        <circle cx="0" cy="104" r="3.5" fill="#10b981"/>
+        <circle cx="-65.7" cy="65.7" r="3.5" fill="#10b981"/>
+        <circle cx="-83.2" cy="0" r="3.5" fill="#10b981"/>
+        <circle cx="-72.8" cy="-72.8" r="3.5" fill="#10b981"/>
+
+        <circle cx="0" cy="-72.8" r="3.5" fill="#3b82f6"/>
+        <circle cx="58.5" cy="-58.5" r="3.5" fill="#3b82f6"/>
+        <circle cx="104" cy="0" r="3.5" fill="#3b82f6"/>
+        <circle cx="65.7" cy="65.7" r="3.5" fill="#3b82f6"/>
+        <circle cx="0" cy="93.6" r="3.5" fill="#3b82f6"/>
+        <circle cx="-65.7" cy="65.7" r="3.5" fill="#3b82f6"/>
+        <circle cx="-83.2" cy="0" r="3.5" fill="#3b82f6"/>
+        <circle cx="-58.5" cy="-58.5" r="3.5" fill="#3b82f6"/>
+
+        <circle cx="0" cy="-62.4" r="3" fill="#a855f7"/>
+        <circle cx="43.7" cy="-43.7" r="3" fill="#a855f7"/>
+        <circle cx="83.2" cy="0" r="3" fill="#a855f7"/>
+        <circle cx="58.5" cy="58.5" r="3" fill="#a855f7"/>
+        <circle cx="0" cy="62.4" r="3" fill="#a855f7"/>
+        <circle cx="-58.5" cy="58.5" r="3" fill="#a855f7"/>
+        <circle cx="-72.8" cy="0" r="3" fill="#a855f7"/>
+        <circle cx="-51" cy="-51" r="3" fill="#a855f7"/>
+      </g>
+
+      <!-- legend -->
+      <g transform="translate(20,470)">
+        <rect x="0" y="0" width="12" height="12" rx="2" fill="rgba(245,158,11,0.8)"/>
+        <text x="16" y="10" fill="#f59e0b" font-size="11">Claude Sonnet (76)</text>
+        <rect x="120" y="0" width="12" height="12" rx="2" fill="rgba(16,185,129,0.8)"/>
+        <text x="136" y="10" fill="#10b981" font-size="11">Qwen3.8-27B (73)</text>
+        <rect x="240" y="0" width="12" height="12" rx="2" fill="rgba(59,130,246,0.8)"/>
+        <text x="256" y="10" fill="#3b82f6" font-size="11">Gemini 3.7 Flash (70)</text>
+        <rect x="390" y="0" width="12" height="12" rx="2" fill="rgba(168,85,247,0.8)"/>
+        <text x="406" y="10" fill="#a855f7" font-size="11">OpenCode (60)</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ═══ AXES ═══ -->
+<section id="axes">
+  <h2>📊 評価軸別 詳細分析</h2>
+
+  <div class="axis-table-wrap">
+    <table class="axis-table">
+      <thead>
+        <tr>
+          <th style="width:140px">評価軸</th>
+          <th colspan="2">Claude (🥇)</th>
+          <th colspan="2">Qwen (🥈)</th>
+          <th colspan="2">Gemini (🥉)</th>
+          <th colspan="2">OpenCode</th>
+          <th style="width:200px">解説</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- バグ発見数 -->
+        <tr>
+          <td class="axis-name">🐛 バグ発見数</td>
+          <td class="bar-cell">
+            <div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-claude" style="width:90%"></div></div></div>
+          </td>
+          <td><span class="score-num sn-claude">9/10</span></td>
+          <td class="bar-cell">
+            <div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-qwen" style="width:100%"></div></div></div>
+          </td>
+          <td><span class="score-num sn-qwen">10/10</span></td>
+          <td class="bar-cell">
+            <div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-gemini" style="width:70%"></div></div></div>
+          </td>
+          <td><span class="score-num sn-gemini">7/10</span></td>
+          <td class="bar-cell">
+            <div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-opencode" style="width:60%"></div></div></div>
+          </td>
+          <td><span class="score-num sn-opencode">6/10</span></td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">重複除外で発見した問題の総数。Qwen が Critical 含む最多発見。Claude が12件で次点。</td>
+        </tr>
+
+        <!-- 分析の深さ -->
+        <tr>
+          <td class="axis-name">🔬 分析の深さ</td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-claude" style="width:100%"></div></div></div></td>
+          <td><span class="score-num sn-claude">10/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-qwen" style="width:90%"></div></div></div></td>
+          <td><span class="score-num sn-qwen">9/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-gemini" style="width:80%"></div></div></div></td>
+          <td><span class="score-num sn-gemini">8/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-opencode" style="width:60%"></div></div></div></td>
+          <td><span class="score-num sn-opencode">6/10</span></td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">根本原因の追跡・副作用の言及・将来の破損リスクへの言及。ClaudeはDRV8825電源ノイズまで解析。</td>
+        </tr>
+
+        <!-- 修正具体性 -->
+        <tr>
+          <td class="axis-name">🔧 修正具体性</td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-claude" style="width:90%"></div></div></div></td>
+          <td><span class="score-num sn-claude">9/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-qwen" style="width:90%"></div></div></div></td>
+          <td><span class="score-num sn-qwen">9/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-gemini" style="width:100%"></div></div></div></td>
+          <td><span class="score-num sn-gemini">10/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-opencode" style="width:80%"></div></div></div></td>
+          <td><span class="score-num sn-opencode">8/10</span></td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">コードスニペット付きで「修正前→修正後」が明示されているか。Geminiが最も完成度が高い。</td>
+        </tr>
+
+        <!-- 報告品質 -->
+        <tr>
+          <td class="axis-name">📄 報告品質</td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-claude" style="width:100%"></div></div></div></td>
+          <td><span class="score-num sn-claude">10/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-qwen" style="width:80%"></div></div></div></td>
+          <td><span class="score-num sn-qwen">8/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-gemini" style="width:90%"></div></div></div></td>
+          <td><span class="score-num sn-gemini">9/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-opencode" style="width:80%"></div></div></div></td>
+          <td><span class="score-num sn-opencode">8/10</span></td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">構造・見出し・表・優先度サマリーの充実度。Claudeの番号付き優先度テーブルが最高水準。</td>
+        </tr>
+
+        <!-- ハードウェア理解 -->
+        <tr>
+          <td class="axis-name">⚙️ HW理解</td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-claude" style="width:90%"></div></div></div></td>
+          <td><span class="score-num sn-claude">9/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-qwen" style="width:100%"></div></div></div></td>
+          <td><span class="score-num sn-qwen">10/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-gemini" style="width:90%"></div></div></div></td>
+          <td><span class="score-num sn-gemini">9/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-opencode" style="width:60%"></div></div></div></td>
+          <td><span class="score-num sn-opencode">6/10</span></td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">ESP32のRAM制約・DRV8825・SG90・ステッピングモーター対向配置の理解度。QwenはArduino元版との突合まで実施。</td>
+        </tr>
+
+        <!-- 誤検知率 (低いほど良い → 高得点=誤検知少ない) -->
+        <tr>
+          <td class="axis-name">✅ 誤検知率<br><span style="font-size:0.7rem;font-weight:400;color:var(--text-muted)">(低=高得点)</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-claude" style="width:80%"></div></div></div></td>
+          <td><span class="score-num sn-claude">8/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-qwen" style="width:90%"></div></div></div></td>
+          <td><span class="score-num sn-qwen">9/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-gemini" style="width:90%"></div></div></div></td>
+          <td><span class="score-num sn-gemini">9/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-opencode" style="width:80%"></div></div></div></td>
+          <td><span class="score-num sn-opencode">8/10</span></td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">実際には問題でない事項を誤って問題と報告していないか。Claudeは#9(set_joint_angles_instant)を「動作上無害」と正しく低優先度化。</td>
+        </tr>
+
+        <!-- 優先度付け -->
+        <tr>
+          <td class="axis-name">🎯 優先度付け</td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-claude" style="width:100%"></div></div></div></td>
+          <td><span class="score-num sn-claude">10/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-qwen" style="width:80%"></div></div></div></td>
+          <td><span class="score-num sn-qwen">8/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-gemini" style="width:80%"></div></div></div></td>
+          <td><span class="score-num sn-gemini">8/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-opencode" style="width:70%"></div></div></div></td>
+          <td><span class="score-num sn-opencode">7/10</span></td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">Critical/High/Medium/Lowの4段階が論理的に一貫しているか、ビジネス影響・安全性が考慮されているか。</td>
+        </tr>
+
+        <!-- 独自発見 -->
+        <tr>
+          <td class="axis-name">💡 独自発見</td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-claude" style="width:70%"></div></div></div></td>
+          <td><span class="score-num sn-claude">7/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-qwen" style="width:100%"></div></div></div></td>
+          <td><span class="score-num sn-qwen">10/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-gemini" style="width:80%"></div></div></div></td>
+          <td><span class="score-num sn-gemini">8/10</span></td>
+          <td class="bar-cell"><div class="bar-in-cell"><div class="bar-track"><div class="bar-fill b-opencode" style="width:70%"></div></div></div></td>
+          <td><span class="score-num sn-opencode">7/10</span></td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">他のモデルが見落とした問題の発見数。QwenはCritical-2(ドキュメント欠落)・Critical-3(暴走)を単独発見。</td>
+        </tr>
+
+        <!-- TOTAL -->
+        <tr style="font-weight:700;background:var(--surface3)">
+          <td class="axis-name">🏆 合計</td>
+          <td colspan="2" style="text-align:center"><span class="score-num sn-claude" style="font-size:1.1rem">76/80</span></td>
+          <td colspan="2" style="text-align:center"><span class="score-num sn-qwen" style="font-size:1.1rem">73/80</span></td>
+          <td colspan="2" style="text-align:center"><span class="score-num sn-gemini" style="font-size:1.1rem">70/80</span></td>
+          <td colspan="2" style="text-align:center"><span class="score-num sn-opencode" style="font-size:1.1rem">60/80</span></td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">Claude が総合1位。Qwenが僅差2位で独自発見力は最高。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- horizontal bar comparison by axis -->
+  <h3>🏆 軸別 最優秀モデル</h3>
+  <div class="hbar-chart" style="margin-top:0.5rem">
+    <div class="hbar-row">
+      <div class="hbar-label">バグ発見数</div>
+      <div class="hbar-track"><div class="hbar-fill qwen" style="width:100%">Qwen (10)</div></div>
+    </div>
+    <div class="hbar-row">
+      <div class="hbar-label">分析の深さ</div>
+      <div class="hbar-track"><div class="hbar-fill claude" style="width:100%">Claude (10)</div></div>
+    </div>
+    <div class="hbar-row">
+      <div class="hbar-label">修正具体性</div>
+      <div class="hbar-track"><div class="hbar-fill gemini" style="width:100%">Gemini (10)</div></div>
+    </div>
+    <div class="hbar-row">
+      <div class="hbar-label">報告品質</div>
+      <div class="hbar-track"><div class="hbar-fill claude" style="width:100%">Claude (10)</div></div>
+    </div>
+    <div class="hbar-row">
+      <div class="hbar-label">HW理解</div>
+      <div class="hbar-track"><div class="hbar-fill qwen" style="width:100%">Qwen (10)</div></div>
+    </div>
+    <div class="hbar-row">
+      <div class="hbar-label">誤検知率</div>
+      <div class="hbar-track"><div class="hbar-fill gemini" style="width:100%">Gemini / Qwen (9)</div></div>
+    </div>
+    <div class="hbar-row">
+      <div class="hbar-label">優先度付け</div>
+      <div class="hbar-track"><div class="hbar-fill claude" style="width:100%">Claude (10)</div></div>
+    </div>
+    <div class="hbar-row">
+      <div class="hbar-label">独自発見</div>
+      <div class="hbar-track"><div class="hbar-fill qwen" style="width:100%">Qwen (10)</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ EXCLUSIVE FINDINGS ═══ -->
+<section id="exclusive">
+  <h2>🔍 独自発見・特徴的指摘</h2>
+  <p style="color:var(--text-muted);margin-bottom:1.2rem">他のモデルが見落とした重要な指摘。発見の多様性が評価の差を生む。</p>
+
+  <div class="find-grid">
+
+    <!-- CLAUDE 独自 -->
+    <div class="find-card find-exclusive fe-claude">
+      <h4><span class="badge badge-claude">Claude 独自</span> DRV8825 電流スパイクリスク</h4>
+      <p>左右モーターの STEP パルスを同時発行することで DRV8825 ドライバに電流スパイクが発生し、ESP32 の 3.3V ロジックラインがリセットするリスクを指摘。ハードウェア故障リスクまで追跡した唯一の指摘。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-claude">
+      <h4><span class="badge badge-claude">Claude 独自</span> <code>begin()</code> / <code>start()</code> の重複インターフェース</h4>
+      <p><code>web_server.py</code> に初期化メソッドが2種類存在し、一方が未使用のデッドコードになっている点を指摘。API設計の一貫性問題。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-claude">
+      <h4><span class="badge badge-claude">Claude 独自</span> <code>points</code> がUI未表示</h4>
+      <p>API から <code>d.points</code> を受信しているのに <code>index.html</code> の画面に反映していない UI バグを発見。フロントエンドとバックエンドの齟齬。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-claude">
+      <h4><span class="badge badge-claude">Claude 独自</span> <code>_normalize_angle_deg</code> とサーボ制限の不一致</h4>
+      <p>逆運動学の正規化が <code>-180°〜+180°</code> なのに対してサーボ制限バリデーションが <code>0°〜180°</code> のみで、物理的に到達可能な位置が到達不可と判定される論理矛盾を発見。</p>
+    </div>
+
+    <!-- QWEN 独自 -->
+    <div class="find-card find-exclusive fe-qwen">
+      <h4><span class="badge badge-qwen">Qwen 独自 ★最重要</span> <code>index.html</code> アップロード手順の欠落</h4>
+      <p>README / HANDOVER のアップロード手順に <code>index.html</code> が記載されておらず、手順どおりに作業するとダッシュボードが必ず <strong>500 Error</strong> になるドキュメントバグを単独発見。実害が最も大きい。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-qwen">
+      <h4><span class="badge badge-qwen">Qwen 独自 ★重要</span> PASSING_LINE の 2倍速暴走</h4>
+      <p><code>execute_passing_line_step()</code> のステップゲートが欠落しており、毎 update (0.5〜1ms) でモーターが駆動されて通常速度の約2倍で前進する安全上の問題を発見。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-qwen">
+      <h4><span class="badge badge-qwen">Qwen 独自</span> P制御の符号が Arduino 元版と逆</h4>
+      <p>他のモデルが「P制御が呼ばれていない」に止まったのに対し、Qwen はさらに <code>execute_tracking_speed()</code> の補正符号自体が Arduino 元版と逆であり、接続してもラインから離れる正帰還になる点を指摘。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-qwen">
+      <h4><span class="badge badge-qwen">Qwen 独自</span> UART '1' がアーム実行中を中断</h4>
+      <p>RPi から '1' を受信するとアーム再生中でも即座に TURN_LEFT 遷移し、シーケンス整合性が崩れる競合状態を発見。ステートマシンの設計バグ。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-qwen">
+      <h4><span class="badge badge-qwen">Qwen 独自</span> TURN_LEFT タイムアウト欠如</h4>
+      <p>ラインを一度も検知しない限り永遠に旋回し続けるリスクを指摘。<code>MAX_TURN_DURATION_MS</code> の追加を提案した唯一のモデル。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-qwen">
+      <h4><span class="badge badge-qwen">Qwen 独自</span> 無点数トリガーの無言通過</h4>
+      <p>ティーチング点が0個の状態でマーカーを検知した場合、警告なしにそのまま前進し続ける誤動作を発見。<code>play()</code> の戻り値が無視されている問題。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-qwen">
+      <h4><span class="badge badge-qwen">Qwen 独自</span> <code>attach_servos()</code> の PWM 重複チャネル</h4>
+      <p>SERVO_ON を連打すると既存の PWM を deinit せずに新規作成するため、重複チャネルが発生する可能性を指摘。</p>
+    </div>
+
+    <!-- GEMINI 独自 -->
+    <div class="find-card find-exclusive fe-gemini">
+      <h4><span class="badge badge-gemini">Gemini 独自</span> IK Elbow Down 計算バグ</h4>
+      <p><code>else: t1_rad = alpha + beta</code> が elbow_up と同一の計算になり、下肘姿勢の解が求まらない数学的バグを発見。修正コードも「常に <code>alpha - beta</code>」と明快に提示。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-gemini">
+      <h4><span class="badge badge-gemini">Gemini 独自</span> <code>gc.collect()</code> によるモーター脱調</h4>
+      <p>1秒間隔のステータスポーリングごとに同期 GC が実行され、CPUが停止してステッピングモーターが脱調する問題を発見。MicroPython 固有の協調スケジューリング問題の深い理解。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-gemini">
+      <h4><span class="badge badge-gemini">Gemini 独自</span> <code>os.listdir()</code> のヒープ消費</h4>
+      <p>ファイル存在確認に <code>os.listdir()</code> を使うとディレクトリ全体のファイル名リストが RAM 上に生成される問題を発見し、<code>try-open</code> パターンへの変更を提案。</p>
+    </div>
+
+    <!-- OPENCODE 独自 -->
+    <div class="find-card find-exclusive fe-opencode">
+      <h4><span class="badge badge-opencode">OpenCode 独自</span> Wi-Fi セキュリティ問題</h4>
+      <p><code>authmode=0</code> によるオープンネットワークを高優先度として指摘。他モデルは「authmode=0 は no-op」として低優先度に留めたのに対し、WPA2-PSK 設定の修正コードまで提示。</p>
+    </div>
+
+    <div class="find-card find-exclusive fe-opencode">
+      <h4><span class="badge badge-opencode">OpenCode 独自</span> <code>MAX_TEACH_POINTS</code> の定数分散</h4>
+      <p><code>MAX_TEACH_POINTS = 32</code> が <code>teaching.py</code> にハードコードされており、<code>config.py</code> への一元管理を提案した唯一のモデル。保守性の観点。</p>
+    </div>
+
+  </div>
+
+  <!-- 発見数サマリー -->
+  <h3 style="margin-top:2rem">独自発見 件数サマリー</h3>
+  <div class="hbar-chart" style="margin-top:0.8rem">
+    <div class="hbar-row">
+      <div class="hbar-label">Qwen</div>
+      <div class="hbar-track"><div class="hbar-fill qwen" style="width:100%">6件 (Critical 2件含む)</div></div>
+    </div>
+    <div class="hbar-row">
+      <div class="hbar-label">Claude</div>
+      <div class="hbar-track"><div class="hbar-fill claude" style="width:67%">4件</div></div>
+    </div>
+    <div class="hbar-row">
+      <div class="hbar-label">Gemini</div>
+      <div class="hbar-track"><div class="hbar-fill gemini" style="width:50%">3件</div></div>
+    </div>
+    <div class="hbar-row">
+      <div class="hbar-label">OpenCode</div>
+      <div class="hbar-track"><div class="hbar-fill opencode" style="width:33%">2件</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ VERDICT ═══ -->
+<section id="verdict">
+  <h2>📋 モデル別 総合評価</h2>
+  <div class="verdict-grid">
+
+    <!-- Claude -->
+    <div class="verdict-card claude">
+      <div class="verdict-header">
+        <div class="verdict-icon">🥇</div>
+        <div>
+          <div class="verdict-title">Claude Sonnet 4.6 Thinking</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem">76点 / 80点</div>
+        </div>
+        <div class="verdict-tag vt-claude">報告品質 No.1</div>
+      </div>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.8rem">
+        「分析の深さ」と「報告品質」「優先度付け」で満点。バグ報告書としての完成度が最も高く、優先度テーブル・RAM分析・行番号付き解説と三拍子が揃っている。DRV8825 の電源ノイズリスクという他モデルが見落とした H/W レベルの問題も発見。
+      </p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h5>✅ 強み</h5>
+          <ul>
+            <li>根本原因の追跡が最も深い</li>
+            <li>優先度サマリー表が明快</li>
+            <li>RAM・フラッシュ分析が詳細</li>
+            <li>将来の破損リスクまで言及</li>
+            <li>番号付きバグ体系が明確</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h5>⚠️ 弱み</h5>
+          <ul>
+            <li>独自発見数はやや少ない</li>
+            <li>Arduino 元版との突合なし</li>
+            <li>ドキュメントの欠落を見逃した</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Qwen -->
+    <div class="verdict-card qwen">
+      <div class="verdict-header">
+        <div class="verdict-icon">🥈</div>
+        <div>
+          <div class="verdict-title">Qwen3.8-27B</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem">73点 / 80点</div>
+        </div>
+        <div class="verdict-tag vt-qwen">発見力 No.1</div>
+      </div>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.8rem">
+        「バグ発見数」「HW理解」「独自発見」で満点。Arduino 元版 (<code>LineFollower.cpp</code>) との突合作業を唯一実施し、P制御の符号逆転・PASSING_LINE 暴走・ドキュメント欠落という Critical バグを単独発見。安全性に直結する問題を最も多く見つけた。
+      </p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h5>✅ 強み</h5>
+          <ul>
+            <li>Arduino 元版との突合で符号ミスを発見</li>
+            <li>ステートマシン設計の競合を発見</li>
+            <li>ドキュメントバグまで対象に含めた</li>
+            <li>安全・暴走リスクへの感度が高い</li>
+            <li>独自発見が最多 (6件)</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h5>⚠️ 弱み</h5>
+          <ul>
+            <li>報告の構造がやや散漫</li>
+            <li>優先度判断が一部過剰</li>
+            <li>RAM分析がやや浅い</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gemini -->
+    <div class="verdict-card gemini">
+      <div class="verdict-header">
+        <div class="verdict-icon">🥉</div>
+        <div>
+          <div class="verdict-title">Gemini 3.7 Flash</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem">70点 / 80点</div>
+        </div>
+        <div class="verdict-tag vt-gemini">修正提案 No.1</div>
+      </div>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.8rem">
+        「修正具体性」で満点。すべての問題に対して「修正前→修正後」の完成コードを提供しており、エンジニアがそのまま適用できる実用性が最高。IK Elbow Down バグという数学的な誤りを単独発見したのも特筆点。
+      </p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h5>✅ 強み</h5>
+          <ul>
+            <li>修正コードが最も完成度が高い</li>
+            <li>IK 数学バグを単独発見</li>
+            <li>GC によるモーター脱調を発見</li>
+            <li>mpy-cross・gzip 最適化も提案</li>
+            <li>誤検知が少ない</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h5>⚠️ 弱み</h5>
+          <ul>
+            <li>発見バグ数がやや少ない</li>
+            <li>ステートマシン問題を見逃した</li>
+            <li>ドキュメント欠落を見逃した</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- OpenCode -->
+    <div class="verdict-card opencode">
+      <div class="verdict-header">
+        <div class="verdict-icon">4位</div>
+        <div>
+          <div class="verdict-title">OpenCode AI Agent</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem">60点 / 80点</div>
+        </div>
+        <div class="verdict-tag vt-opencode">実用性 重視</div>
+      </div>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.8rem">
+        修正コードの提示・セキュリティ観点・保守性への配慮は優れているが、Critical な制御バグ（IK誤り・ステートマシン問題）を見落とした。H/W 固有知識（DRV8825・ステッピングモーター対向配置）の理解が他モデルと比較して浅い。
+      </p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h5>✅ 強み</h5>
+          <ul>
+            <li>Wi-Fi セキュリティを重視</li>
+            <li>コード保守性の観点が豊富</li>
+            <li>定数一元管理の提案</li>
+            <li>報告フォーマットが整理されている</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h5>⚠️ 弱み</h5>
+          <ul>
+            <li>Critical バグを複数見落とした</li>
+            <li>HW 固有知識が不十分</li>
+            <li>分析の深さが最低</li>
+            <li>IK・ステートマシンを未言及</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══ USE CASE ═══ -->
+<section id="usecase">
+  <h2>💡 用途別 推奨モデル</h2>
+  <div style="overflow-x:auto">
+    <table class="uc-table">
+      <thead>
+        <tr>
+          <th>用途 / シナリオ</th>
+          <th>推奨</th>
+          <th>Claude</th>
+          <th>Qwen</th>
+          <th>Gemini</th>
+          <th>OpenCode</th>
+          <th>理由</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>安全性・機能バグの全網羅</strong></td>
+          <td><span class="badge badge-qwen">Qwen</span></td>
+          <td>★★★★☆</td>
+          <td>★★★★★</td>
+          <td>★★★★☆</td>
+          <td>★★★☆☆</td>
+          <td>Critical 発見数・Arduino 元版との突合力が最高</td>
+        </tr>
+        <tr>
+          <td><strong>レビュー報告書として提出</strong></td>
+          <td><span class="badge badge-claude">Claude</span></td>
+          <td>★★★★★</td>
+          <td>★★★★☆</td>
+          <td>★★★★☆</td>
+          <td>★★★☆☆</td>
+          <td>構造・優先度・番号付きバグ一覧が最も明快</td>
+        </tr>
+        <tr>
+          <td><strong>修正コードをすぐ適用したい</strong></td>
+          <td><span class="badge badge-gemini">Gemini</span></td>
+          <td>★★★★☆</td>
+          <td>★★★★☆</td>
+          <td>★★★★★</td>
+          <td>★★★★☆</td>
+          <td>全バグに「修正前→修正後」の完成コードを提供</td>
+        </tr>
+        <tr>
+          <td><strong>MicroPython 固有問題の検出</strong></td>
+          <td><span class="badge badge-gemini">Gemini</span></td>
+          <td>★★★★☆</td>
+          <td>★★★★☆</td>
+          <td>★★★★★</td>
+          <td>★★★☆☆</td>
+          <td>gc.collect() 脱調・os.listdir() ヒープ等 MP 固有問題に感度が高い</td>
+        </tr>
+        <tr>
+          <td><strong>ハードウェア制御バグの検出</strong></td>
+          <td><span class="badge badge-qwen">Qwen</span> + <span class="badge badge-claude">Claude</span></td>
+          <td>★★★★★</td>
+          <td>★★★★★</td>
+          <td>★★★★☆</td>
+          <td>★★★☆☆</td>
+          <td>Qwen はステートマシン、Claude は DRV8825 リスクを検出</td>
+        </tr>
+        <tr>
+          <td><strong>コード品質・保守性の改善</strong></td>
+          <td><span class="badge badge-opencode">OpenCode</span></td>
+          <td>★★★★☆</td>
+          <td>★★★☆☆</td>
+          <td>★★★★☆</td>
+          <td>★★★★★</td>
+          <td>定数分散・カプセル化・コード重複などの設計観点が充実</td>
+        </tr>
+        <tr>
+          <td><strong>セキュリティ観点のレビュー</strong></td>
+          <td><span class="badge badge-opencode">OpenCode</span></td>
+          <td>★★★☆☆</td>
+          <td>★★★☆☆</td>
+          <td>★★★☆☆</td>
+          <td>★★★★★</td>
+          <td>Wi-Fi セキュリティを唯一高優先度として取り上げ修正コードを提示</td>
+        </tr>
+        <tr>
+          <td><strong>速度・コスト重視の初期調査</strong></td>
+          <td><span class="badge badge-gemini">Gemini</span></td>
+          <td>★★★☆☆</td>
+          <td>★★★☆☆</td>
+          <td>★★★★★</td>
+          <td>★★★★☆</td>
+          <td>Flash モデルとして高速・低コスト。主要バグは十分カバー</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin-top:2rem">🎯 総合推奨</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;margin-top:0.8rem">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.2rem">
+      <div style="font-size:0.8rem;font-weight:700;color:var(--gold);margin-bottom:0.5rem">🏆 最も網羅的なレビューが必要な場合</div>
+      <p style="font-size:0.82rem;color:var(--text-muted)"><span class="badge badge-qwen">Qwen</span> + <span class="badge badge-claude">Claude</span> の2モデル併用。Qwen の発見力と Claude の分析深度が相補的に機能する。</p>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.2rem">
+      <div style="font-size:0.8rem;font-weight:700;color:var(--green);margin-bottom:0.5rem">⚡ 単一モデルで最高バランス</div>
+      <p style="font-size:0.82rem;color:var(--text-muted)"><span class="badge badge-claude">Claude Sonnet 4.6 Thinking</span> を第一選択。報告品質・深さ・優先度付けがバランスよく最高水準。</p>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.2rem">
+      <div style="font-size:0.8rem;font-weight:700;color:var(--gemini-h);margin-bottom:0.5rem">🛠️ 修正作業の直接サポート</div>
+      <p style="font-size:0.82rem;color:var(--text-muted)"><span class="badge badge-gemini">Gemini 3.7 Flash</span> を選択。修正前後のコードが完成形で提供され、実装がそのまま行える。</p>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.2rem">
+      <div style="font-size:0.8rem;font-weight:700;color:var(--opencode-h);margin-bottom:0.5rem">🔒 設計レビュー・セキュリティ</div>
+      <p style="font-size:0.82rem;color:var(--text-muted)"><span class="badge badge-opencode">OpenCode AI Agent</span> を補助的に使用。保守性・セキュリティ・コード設計の観点を補完する。</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>AIモデル コード解析能力評価レポート — MakerLine Arm MicroPython | 作成日: 2026-09-02</p>
+  <p style="margin-top:0.4rem">評価はこのプロジェクト固有のタスクに基づく。一般的なコーディング能力の評価とは異なる場合があります。</p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI デバッグレポート — MakerLine Arm MicroPython</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #5b8dee;
+      --accent2: #7c6ee8;
+      --text: #e2e8f0;
+      --text-muted: #8892aa;
+      --red: #f87171;
+      --orange: #fb923c;
+      --yellow: #fbbf24;
+      --green: #34d399;
+      --teal: #22d3ee;
+      --claude: #d97706;
+      --gemini: #2563eb;
+      --opencode: #7c3aed;
+      --qwen: #059669;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+    header { background: linear-gradient(135deg, #1a1d27 0%, #0f1117 100%); border-bottom: 1px solid var(--border); padding: 2.5rem 2rem 2rem; text-align: center; }
+    header h1 { font-size: 2rem; font-weight: 700; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+    header .meta { color: var(--text-muted); font-size: 0.9rem; }
+    header .badges { display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem; }
+    .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; border: 1px solid; }
+    .badge-claude  { color: var(--claude);  border-color: var(--claude);  background: rgba(217,119,6,.1); }
+    .badge-gemini  { color: var(--gemini);  border-color: var(--gemini);  background: rgba(37,99,235,.1); }
+    .badge-opencode{ color: var(--opencode);border-color: var(--opencode);background: rgba(124,58,237,.1);}
+    .badge-qwen    { color: var(--qwen);    border-color: var(--qwen);    background: rgba(5,150,105,.1); }
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(15,17,23,0.95); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); display: flex; gap: 0; overflow-x: auto; }
+    nav a { color: var(--text-muted); text-decoration: none; padding: 0.9rem 1.2rem; font-size: 0.85rem; font-weight: 500; white-space: nowrap; border-bottom: 2px solid transparent; transition: color .2s, border-color .2s; }
+    nav a:hover { color: var(--text); border-bottom-color: var(--accent); }
+    main { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+    section { margin-bottom: 3rem; }
+    h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 1.2rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: 0.5rem; }
+    h3 { font-size: 1.05rem; font-weight: 600; margin: 1.4rem 0 0.6rem; color: var(--accent); }
+    h4 { font-size: 0.95rem; font-weight: 600; margin: 1rem 0 0.4rem; color: var(--text); }
+    p { margin-bottom: 0.7rem; color: var(--text); }
+    .ai-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .ai-tab-btn { padding: 0.5rem 1.1rem; border-radius: 8px; border: 1.5px solid; cursor: pointer; font-size: 0.82rem; font-weight: 600; background: transparent; transition: all .2s; }
+    .ai-tab-btn.claude   { color: var(--claude);  border-color: var(--claude);  }
+    .ai-tab-btn.gemini   { color: var(--gemini);  border-color: var(--gemini);  }
+    .ai-tab-btn.opencode { color: var(--opencode);border-color: var(--opencode);}
+    .ai-tab-btn.qwen     { color: var(--qwen);    border-color: var(--qwen);    }
+    .ai-tab-btn.active, .ai-tab-btn:hover { filter: brightness(1.15); }
+    .ai-tab-btn.claude.active   { background: rgba(217,119,6,.18); }
+    .ai-tab-btn.gemini.active   { background: rgba(37,99,235,.18); }
+    .ai-tab-btn.opencode.active { background: rgba(124,58,237,.18);}
+    .ai-tab-btn.qwen.active     { background: rgba(5,150,105,.18); }
+    .ai-panel { display: none; }
+    .ai-panel.active { display: block; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.4rem; margin-bottom: 1rem; }
+    .card-header { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.8rem; }
+    .sev { display: inline-block; padding: 0.18rem 0.65rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: .03em; }
+    .sev-critical { background: rgba(248,113,113,.2); color: var(--red); border: 1px solid rgba(248,113,113,.4); }
+    .sev-high     { background: rgba(251,146,60,.2);  color: var(--orange); border: 1px solid rgba(251,146,60,.4); }
+    .sev-medium   { background: rgba(251,191,36,.2);  color: var(--yellow); border: 1px solid rgba(251,191,36,.4); }
+    .sev-low      { background: rgba(52,211,153,.2);  color: var(--green);  border: 1px solid rgba(52,211,153,.4); }
+    pre { background: #0d1117; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; font-size: 0.8rem; line-height: 1.6; margin: 0.6rem 0; }
+    code { font-family: 'Cascadia Code', 'Consolas', monospace; color: #a8d8ff; }
+    pre code { color: #cdd6f4; }
+    .table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { background: var(--surface2); color: var(--accent); padding: 0.65rem 0.9rem; text-align: left; border: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 0.6rem 0.9rem; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: var(--surface2); }
+    tr:hover td { background: rgba(91,141,238,.06); }
+    .file-tag { display: inline-block; background: rgba(91,141,238,.15); color: var(--teal); border: 1px solid rgba(91,141,238,.3); border-radius: 4px; padding: 0.1rem 0.5rem; font-family: monospace; font-size: 0.78rem; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.2rem; text-align: center; }
+    .stat-num { font-size: 2rem; font-weight: 700; }
+    .stat-label { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
+    .stat-red    .stat-num { color: var(--red); }
+    .stat-orange .stat-num { color: var(--orange); }
+    .stat-yellow .stat-num { color: var(--yellow); }
+    .stat-green  .stat-num { color: var(--green); }
+    .flash-ok   { color: var(--green); }
+    .flash-warn { color: var(--yellow); }
+    .consensus-item { display: flex; gap: 0.8rem; align-items: flex-start; padding: 0.8rem 0; border-bottom: 1px solid var(--border); }
+    .consensus-item:last-child { border-bottom: none; }
+    .consensus-ai-badges { display: flex; gap: 0.3rem; flex-wrap: wrap; min-width: 180px; }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 2rem; border-top: 1px solid var(--border); margin-top: 3rem; }
+    .note { background: rgba(91,141,238,.08); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 0.7rem 1rem; font-size: 0.88rem; color: var(--text-muted); margin: 0.6rem 0; }
+    .warning-note { background: rgba(251,191,36,.08); border-left: 3px solid var(--yellow); border-radius: 0 6px 6px 0; padding: 0.7rem 1rem; font-size: 0.88rem; color: var(--yellow); margin: 0.6rem 0; }
+    ul, ol { padding-left: 1.4rem; }
+    li { margin-bottom: 0.35rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🤖 AI デバッグレポート統合版</h1>
+  <p class="meta">MakerLine Arm MicroPython (ESP32) — 静的解析 | 作成日: 2026-09-02</p>
+  <div class="badges">
+    <span class="badge badge-claude">Claude Sonnet 4.6 Thinking</span>
+    <span class="badge badge-gemini">Gemini 3.7 Flash</span>
+    <span class="badge badge-opencode">OpenCode AI Agent</span>
+    <span class="badge badge-qwen">Qwen3.8-27B</span>
+  </div>
+</header>
+
+<nav>
+  <a href="#overview">📊 概要</a>
+  <a href="#flash">💾 メモリ</a>
+  <a href="#consensus">🔗 共通指摘</a>
+  <a href="#claude">Claude</a>
+  <a href="#gemini">Gemini</a>
+  <a href="#opencode">OpenCode</a>
+  <a href="#qwen">Qwen</a>
+  <a href="#priority">🎯 優先度</a>
+</nav>
+
+<main>
+
+<!-- ═══ OVERVIEW ═══ -->
+<section id="overview">
+  <h2>📊 解析概要</h2>
+  <div class="summary-grid">
+    <div class="stat-card stat-red"><div class="stat-num">5</div><div class="stat-label">Critical 問題 (全AI合計)</div></div>
+    <div class="stat-card stat-orange"><div class="stat-num">8</div><div class="stat-label">HIGH 問題 (全AI合計)</div></div>
+    <div class="stat-card stat-yellow"><div class="stat-num">10+</div><div class="stat-label">MEDIUM / LOW 問題</div></div>
+    <div class="stat-card stat-green"><div class="stat-num">~51 KB</div><div class="stat-label">フラッシュ使用量 (960KB中 ≒5%)</div></div>
+  </div>
+  <div class="card">
+    <h4>解析方針</h4>
+    <p>全モデルとも<strong>ビルドなし・静的コード解析のみ</strong>。プロジェクトコードは編集していない。対象ファイル: <span class="file-tag">config.py</span> <span class="file-tag">boot.py</span> <span class="file-tag">kinematics.py</span> <span class="file-tag">arm.py</span> <span class="file-tag">teaching.py</span> <span class="file-tag">line_follower.py</span> <span class="file-tag">web_server.py</span> <span class="file-tag">main.py</span> <span class="file-tag">index.html</span></p>
+  </div>
+</section>
+
+<!-- ═══ FLASH ═══ -->
+<section id="flash">
+  <h2>💾 フラッシュ・メモリ分析</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ファイル</th><th>サイズ</th><th>行数</th><th>状態</th></tr></thead>
+      <tbody>
+        <tr><td><span class="file-tag">index.html</span></td><td>9,846 B</td><td>—</td><td>⚠️ 最大ファイル (ストリーム配信で対応)</td></tr>
+        <tr><td><span class="file-tag">line_follower.py</span></td><td>9,447 B</td><td>211</td><td class="flash-ok">✅ 正常</td></tr>
+        <tr><td><span class="file-tag">arm.py</span></td><td>7,603 B</td><td>165</td><td class="flash-ok">✅ 正常</td></tr>
+        <tr><td><span class="file-tag">web_server.py</span></td><td>7,128 B</td><td>151</td><td class="flash-ok">✅ 正常</td></tr>
+        <tr><td><span class="file-tag">teaching.py</span></td><td>5,849 B</td><td>153</td><td class="flash-ok">✅ 正常</td></tr>
+        <tr><td><span class="file-tag">kinematics.py</span></td><td>3,910 B</td><td>91</td><td class="flash-ok">✅ 正常</td></tr>
+        <tr><td><span class="file-tag">config.py</span></td><td>1,979 B</td><td>53</td><td class="flash-ok">✅ 正常</td></tr>
+        <tr><td><span class="file-tag">main.py</span></td><td>1,788 B</td><td>48</td><td class="flash-ok">✅ 正常</td></tr>
+        <tr><td><span class="file-tag">boot.py</span></td><td>1,726 B</td><td>42</td><td class="flash-ok">✅ 正常</td></tr>
+        <tr><td><strong>合計</strong></td><td><strong>~51 KB</strong></td><td><strong>914</strong></td><td class="flash-ok"><strong>✅ 960KB中 約5%</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">フラッシュ容量は問題なし。ただし <code>teaching.json</code> のポイント追加ごとの即時書き込み（全AI共通指摘）はフラッシュ摩耗と主ループブロッキングを招く。</div>
+  <div class="warning-note">⚠️ <code>__pycache__/</code> (CPython .pyc) は ESP32 にアップロード不要。<code>ampy</code> / <code>rshell</code> での書き込み時に除外すること。</div>
+  <h3>最適化推奨事項</h3>
+  <div class="card">
+    <ul>
+      <li><strong>mpy-cross</strong> で <code>.py → .mpy</code> に事前コンパイルし、起動時のRAMヒープ断片化を防止</li>
+      <li><strong>index.html の gzip 圧縮</strong>: 約9.8KB → 約2.5KB に圧縮、<code>Content-Encoding: gzip</code> で配信</li>
+      <li><strong>teaching.json 書き込みバッファリング</strong>: 変更フラグ (<code>_dirty</code>) を用い、明示的保存時のみフラッシュに書き込む</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══ CONSENSUS ═══ -->
+<section id="consensus">
+  <h2>🔗 全AI共通指摘事項</h2>
+  <p style="color:var(--text-muted); margin-bottom:1rem;">複数のモデルが独立して同じ問題を指摘した項目</p>
+  <div class="card">
+    <div class="consensus-item">
+      <div class="consensus-ai-badges">
+        <span class="badge badge-claude">Claude</span><span class="badge badge-gemini">Gemini</span><span class="badge badge-qwen">Qwen</span>
+      </div>
+      <div>
+        <strong>🔴 P制御がデッドコード — ライントレース機能しない</strong>
+        <p style="font-size:0.88rem;color:var(--text-muted);margin-top:0.3rem;"><span class="file-tag">line_follower.py</span> — <code>execute_tracking_speed()</code> がどこからも呼ばれず、常に直進のみ</p>
+      </div>
+    </div>
+    <div class="consensus-item">
+      <div class="consensus-ai-badges">
+        <span class="badge badge-claude">Claude</span><span class="badge badge-gemini">Gemini</span><span class="badge badge-opencode">OpenCode</span><span class="badge badge-qwen">Qwen</span>
+      </div>
+      <div>
+        <strong>🟠 teaching.json の即時フラッシュ書き込み</strong>
+        <p style="font-size:0.88rem;color:var(--text-muted);margin-top:0.3rem;"><span class="file-tag">teaching.py</span> — ポイント追加ごとに書き込みはフラッシュ寿命とループブロッキングを招く</p>
+      </div>
+    </div>
+    <div class="consensus-item">
+      <div class="consensus-ai-badges">
+        <span class="badge badge-claude">Claude</span><span class="badge badge-opencode">OpenCode</span><span class="badge badge-qwen">Qwen</span>
+      </div>
+      <div>
+        <strong>🟠 プライベート属性への直接アクセス（カプセル化違反）</strong>
+        <p style="font-size:0.88rem;color:var(--text-muted);margin-top:0.3rem;"><span class="file-tag">teaching.py</span> / <span class="file-tag">web_server.py</span> — 存在しないメソッドの <code>hasattr</code> チェックが常に <code>False</code></p>
+      </div>
+    </div>
+    <div class="consensus-item">
+      <div class="consensus-ai-badges">
+        <span class="badge badge-claude">Claude</span><span class="badge badge-gemini">Gemini</span><span class="badge badge-qwen">Qwen</span>
+      </div>
+      <div>
+        <strong>🟠 web_server.py の POST ボディ不完全受信</strong>
+        <p style="font-size:0.88rem;color:var(--text-muted);margin-top:0.3rem;"><span class="file-tag">web_server.py</span> — 1回の <code>recv(1024)</code> のみ、パケット分割で JSON パース失敗</p>
+      </div>
+    </div>
+    <div class="consensus-item">
+      <div class="consensus-ai-badges">
+        <span class="badge badge-claude">Claude</span><span class="badge badge-qwen">Qwen</span>
+      </div>
+      <div>
+        <strong>🟡 <code>__pycache__/</code> を ESP32 にアップロードしないこと</strong>
+        <p style="font-size:0.88rem;color:var(--text-muted);margin-top:0.3rem;">PC テスト産物の CPython バイトコードが無駄なフラッシュを消費する</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CLAUDE ═══ -->
+<section id="claude">
+  <h2 style="border-bottom-color: var(--claude);"><span style="color:var(--claude)">◆</span> Claude Sonnet 4.6 Thinking — 修正内容</h2>
+  <div class="ai-tabs">
+    <button class="ai-tab-btn claude active" onclick="showPanel('claude','c-high')">🔴 HIGH (3件)</button>
+    <button class="ai-tab-btn claude" onclick="showPanel('claude','c-med')">🟠 MEDIUM (4件)</button>
+    <button class="ai-tab-btn claude" onclick="showPanel('claude','c-low')">🟡 LOW (5件)</button>
+    <button class="ai-tab-btn claude" onclick="showPanel('claude','c-ram')">💾 RAM分析</button>
+  </div>
+  <div id="claude-c-high" class="ai-panel active">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">HIGH #1</span><span class="file-tag">line_follower.py:37</span></div>
+      <h4>存在しない <code>config.DIR_PIN</code> 参照</h4>
+      <p><code>config.py</code> に <code>DIR_PIN</code> は存在しない（<code>LEFT_DIR_PIN = 18</code> は存在）。現状は <code>hasattr</code> で無害だが、将来 <code>DIR_PIN</code> が追加された際に誤動作するコードスタイルの不統一。</p>
+      <pre><code># 問題のあるコード
+self._left_dir = Pin(config.DIR_PIN if hasattr(config, 'DIR_PIN') else config.LEFT_DIR_PIN, Pin.OUT)
+
+# 修正案: 直接参照に統一
+self._left_dir = Pin(config.LEFT_DIR_PIN, Pin.OUT)</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">HIGH #2 ★最重要</span><span class="file-tag">line_follower.py:188-202</span></div>
+      <h4>P制御が完全にデッドコード — ライン追従が機能しない</h4>
+      <p><code>execute_tracking_speed()</code> (P制御計算) が存在するが、<code>execute_tracking_step()</code> から一切呼ばれず、常に <code>step_motors(True, True)</code> で直進のみ。</p>
+      <pre><code># 現状 (問題あり) — 常に直進のみ
+def execute_tracking_step(self):
+    now_us = time.ticks_us()
+    if time.ticks_diff(now_us, self._last_step_time_us) >= self._base_step_delay:
+        self._last_step_time_us = now_us
+        self.step_motors(True, True)  # ← P制御を使っていない
+
+# execute_tracking_speed() はデッドコード (どこからも呼ばれない)
+def execute_tracking_speed(self):
+    correction = int(config.LINE_KP * self._sensor_error)
+    left_delay = self._base_step_delay - correction
+    right_delay = self._base_step_delay + correction
+    ...</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">HIGH #3</span><span class="file-tag">line_follower.py:228-232</span></div>
+      <h4>左右モーターの STEP パルス同時発生 — DRV8825 電流スパイクリスク</h4>
+      <p>左右ドライバの電流が同時にスパイクし、電源電圧降下を起こす可能性。ESP32 の 3.3V ロジックラインがリセットするリスク。</p>
+      <pre><code># 現状 (問題あり) — 同時HIGH
+self._left_step.value(1)
+self._right_step.value(1)
+time.sleep_us(10)
+self._left_step.value(0)
+self._right_step.value(0)
+
+# 修正案: 左右を交互に発行
+self._left_step.value(1); time.sleep_us(5); self._left_step.value(0)
+time.sleep_us(5)
+self._right_step.value(1); time.sleep_us(10); self._right_step.value(0)</code></pre>
+    </div>
+  </div>
+  <div id="claude-c-med" class="ai-panel">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">MEDIUM #4</span><span class="file-tag">kinematics.py:68</span></div>
+      <h4>原点 (0,0) で <code>atan2(0,0)</code> が不定になる可能性</h4>
+      <p><code>min_reach = abs(l1 - l2) = 0.0</code> の場合、<code>r &lt; min_reach</code> は <code>False</code> になり原点がすり抜ける。</p>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">MEDIUM #5</span><span class="file-tag">kinematics.py:116-121</span></div>
+      <h4>逆運動学の正規化範囲 (-180〜180) とサーボ制限 (0〜180) の不一致</h4>
+      <p>正規化は <code>-180° ~ +180°</code> だが、<code>is_angles_valid()</code> は <code>0° ~ 180°</code> でチェック。物理的に到達可能な位置なのに到達不可と判定されるケースがある。</p>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">MEDIUM #6</span><span class="file-tag">web_server.py:124</span></div>
+      <h4>不正JSON でレスポンスなしになる</h4>
+      <p>不正なJSONが来ると <code>json.loads()</code> が例外を投げ、クライアントにはレスポンスが返らず接続が突然切れる。</p>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">MEDIUM #7</span><span class="file-tag">web_server.py:109,111,112</span></div>
+      <h4>プライベート属性への直接アクセス（カプセル化違反）</h4>
+      <p><code>self._arm._is_attached</code>, <code>self._arm._current_theta1</code> 等を直接参照。将来 <code>arm.py</code> の実装変更で無言で壊れる。ゲッターメソッドが存在しない。</p>
+    </div>
+  </div>
+  <div id="claude-c-low" class="ai-panel">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-low">LOW #8</span><span class="file-tag">teaching.py:87-88</span></div>
+      <h4>存在しないメソッドの <code>hasattr</code> チェック</h4>
+      <p><code>getCurrentTheta1()</code> / <code>getCurrentTheta2()</code> は arm.py に定義されていない。常に <code>else</code> 側のプライベートアクセスにフォールバック。</p>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-low">LOW #9</span><span class="file-tag">arm.py:142-144</span></div>
+      <h4><code>set_joint_angles_instant()</code> が attach を保証しない</h4>
+      <p>外部から直接呼んだ場合にサーボがアタッチされていなくても <code>write_servo_angles()</code> が呼ばれる（ただし <code>_is_attached</code> チェックで無害にスキップ）。</p>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-low">LOW #10</span><span class="file-tag">main.py:32</span></div>
+      <h4>コメントのステップ番号が「4」を飛ばして「5」にジャンプ</h4>
+      <p><code>1.〜3.</code> の後、<code>5.</code> に飛んでいる。可読性・保守性に影響。</p>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-low">LOW #11</span><span class="file-tag">web_server.py:37-39</span></div>
+      <h4><code>begin()</code> と <code>start()</code> の初期化インターフェース重複</h4>
+      <p><code>main.py</code> は <code>web_server.begin()</code> を呼んでおり <code>start()</code> は未使用。</p>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-low">LOW #12</span><span class="file-tag">index.html</span></div>
+      <h4><code>points</code>（ティーチングポイント数）の表示UIがない</h4>
+      <p><code>/api/status</code> の <code>d.points</code> を受け取っているが画面に表示していない。</p>
+    </div>
+  </div>
+  <div id="claude-c-ram" class="ai-panel">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>項目</th><th>状況</th></tr></thead>
+        <tbody>
+          <tr><td>フラッシュ容量 (総コード ~49KB)</td><td class="flash-ok">✅ 問題なし</td></tr>
+          <tr><td><code>index.html</code> (9.8KB) ストリーム配信</td><td class="flash-ok">✅ 正しい設計</td></tr>
+          <tr><td><code>bytearray(512)</code> 再利用バッファ</td><td class="flash-ok">✅ 良い設計</td></tr>
+          <tr><td><code>teaching.json</code> 最大サイズ (~1.4KB)</td><td class="flash-ok">✅ 問題なし</td></tr>
+          <tr><td><code>json.loads(body)</code> の一時RAM展開</td><td class="flash-warn">⚠️ 大きなPOSTは注意</td></tr>
+          <tr><td><code>gc.collect()</code> 毎リクエスト後呼び出し</td><td class="flash-ok">✅ 良い設計</td></tr>
+          <tr><td><code>__pycache__</code> のアップロード</td><td class="flash-warn">⚠️ ESP32書き込み時に除外必須</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ GEMINI ═══ -->
+<section id="gemini">
+  <h2 style="border-bottom-color: var(--gemini);"><span style="color:var(--gemini)">◆</span> Gemini 3.7 Flash — 修正内容</h2>
+  <div class="ai-tabs">
+    <button class="ai-tab-btn gemini active" onclick="showPanel('gemini','g-kinematics')">kinematics.py</button>
+    <button class="ai-tab-btn gemini" onclick="showPanel('gemini','g-line')">line_follower.py</button>
+    <button class="ai-tab-btn gemini" onclick="showPanel('gemini','g-web')">web_server.py</button>
+    <button class="ai-tab-btn gemini" onclick="showPanel('gemini','g-teaching')">teaching.py</button>
+    <button class="ai-tab-btn gemini" onclick="showPanel('gemini','g-arm')">arm.py</button>
+  </div>
+  <div id="gemini-g-kinematics" class="ai-panel active">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">Critical</span><span class="file-tag">kinematics.py:76-87</span></div>
+      <h4>逆運動学 (IK) の Elbow Down 計算バグ</h4>
+      <p><code>else: t1_rad = alpha + beta</code> と足し算しているため、elbow_up と同一の計算結果になり、下肘姿勢の解が求まらない。</p>
+      <pre><code># 修正前
+if elbow_up:
+    t1_rad = alpha - beta
+else:
+    t1_rad = alpha + beta  # elbow_up と同じ結果になってしまう
+
+# 修正後
+alpha = math.atan2(y, x)
+beta = math.atan2(self._l2 * math.sin(t2_rad),
+                  self._l1 + self._l2 * math.cos(t2_rad))
+t1_rad = alpha - beta  # 常に alpha - beta で一意に求まる</code></pre>
+    </div>
+  </div>
+  <div id="gemini-g-line" class="ai-panel">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">Critical</span><span class="file-tag">line_follower.py</span></div>
+      <h4>問題1: モーター回転方向 (DIR極性) の設定ミス</h4>
+      <p>背中合わせ（対向配置）のステッピングモーターを前進させるには左右で逆の論理レベル (左HIGH, 右LOW) を出力する必要があるが、同じ値を出力してスピンしていた。</p>
+      <h4 style="margin-top:1rem">問題2: P制御ステアリングが未連携</h4>
+      <p><code>execute_tracking_speed()</code> で計算された遅延が <code>execute_tracking_step()</code> から参照されず、固定速で両輪を等速駆動。</p>
+      <h4 style="margin-top:1rem">問題3: 左旋回処理の同期ブロッキング</h4>
+      <p><code>execute_turn_left_step()</code> 内の <code>time.sleep_us(1200)</code> でメインループがブロックされる。</p>
+      <pre><code># 修正後: DIR 極性修正 + 差動操舵
+def step_motors(self, left_forward, right_forward):
+    invert = getattr(config, 'INVERT_MOTOR_DIRECTION', False)
+    if invert:
+        left_dir_val  = 0 if left_forward  else 1
+        right_dir_val = 1 if right_forward else 0
+    else:
+        left_dir_val  = 1 if left_forward  else 0
+        right_dir_val = 0 if right_forward else 1  # 対向配置: 前進時は右LOW
+    self._left_dir.value(left_dir_val)
+    self._right_dir.value(right_dir_val)
+    self._left_step.value(1); self._right_step.value(1)
+    time.sleep_us(10)
+    self._left_step.value(0); self._right_step.value(0)
+
+def execute_tracking_step(self):
+    left_delay, right_delay = self.execute_tracking_speed()
+    min_delay = min(left_delay, right_delay)
+    now_us = time.ticks_us()
+    if time.ticks_diff(now_us, self._last_step_time_us) >= min_delay:
+        self._last_step_time_us = now_us
+        self.step_motors(True, True)</code></pre>
+    </div>
+  </div>
+  <div id="gemini-g-web" class="ai-panel">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">HIGH</span><span class="file-tag">web_server.py:172</span></div>
+      <h4>毎リクエストの強制 <code>gc.collect()</code> によるモーター脱調</h4>
+      <p>ブラウザからの1秒間隔ポーリングごとに <code>gc.collect()</code> が同期実行され、ESP32のCPUが数十〜数百ms停止してステッピングモーターが脱調する。</p>
+      <pre><code># 修正: L172 の gc.collect() を削除
+# メモリ監視を行い必要な時のみ実行</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">HIGH</span><span class="file-tag">web_server.py</span></div>
+      <h4>型キャストの欠落</h4>
+      <pre><code># 修正後: int に明示的キャスト
+val = int(req_json.get("value", 1200))</code></pre>
+    </div>
+  </div>
+  <div id="gemini-g-teaching" class="ai-panel">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">HIGH</span><span class="file-tag">teaching.py</span></div>
+      <h4>Pause/Resume の待機ディレイ破綻</h4>
+      <p><code>WAITING_DELAY</code> 状態で <code>pause()</code> しても停止中にタイマーが進み続け、<code>resume()</code> した瞬間にディレイが即スキップされる。</p>
+      <pre><code>def pause(self):
+    if self._state == PlaybackState.WAITING_DELAY:
+        now = time.ticks_ms()
+        elapsed = time.ticks_diff(now, self._delay_start_time)
+        self._current_delay_ms = max(0, self._current_delay_ms - elapsed)
+        self._previous_state = self._state
+        self._state = PlaybackState.PAUSED
+    elif self._state == PlaybackState.MOVING:
+        self._previous_state = self._state
+        self._state = PlaybackState.PAUSED
+
+def resume(self):
+    if self._state == PlaybackState.PAUSED:
+        if self._previous_state == PlaybackState.WAITING_DELAY:
+            self._delay_start_time = time.ticks_ms()
+        self._state = self._previous_state</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-medium">MEDIUM</span><span class="file-tag">teaching.py</span></div>
+      <h4><code>os.listdir()</code> による不要なヒープ消費</h4>
+      <p><code>if TEACHING_FILE in os.listdir():</code> はディレクトリ全ファイル名リストをRAMに生成する。</p>
+      <pre><code># 修正後: try-open に変更
+def load_from_json(self):
+    try:
+        with open(TEACHING_FILE, "r") as f:
+            data = json.load(f)
+            self._points = [TeachPoint.from_dict(d) for d in data]
+            self._count = len(self._points)
+        return True
+    except OSError:
+        return False</code></pre>
+    </div>
+  </div>
+  <div id="gemini-g-arm" class="ai-panel">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">HIGH</span><span class="file-tag">arm.py:194-195</span></div>
+      <h4>サーボデューティ比のクランプ (SG90保護) 欠落</h4>
+      <p>オフセット設定で角度が 0° 未満や 180° 超になった場合、PWMデューティがサーボの物理限界 (1638〜7864) を超えてサーボが破損する恐れ。</p>
+      <pre><code>def write_servo_angles(self, t1, t2):
+    if not self._is_attached or not self._pwm1 or not self._pwm2:
+        return
+    t1_actual = max(0.0, min(180.0, t1 + config.JOINT1_OFFSET_DEG))
+    t2_actual = max(0.0, min(180.0, t2 + config.JOINT2_OFFSET_DEG))
+    duty1 = int(1638 + (t1_actual / 180.0) * (7864 - 1638))
+    duty2 = int(1638 + (t2_actual / 180.0) * (7864 - 1638))
+    duty1 = max(1638, min(7864, duty1))
+    duty2 = max(1638, min(7864, duty2))
+    try:
+        self._pwm1.duty_u16(duty1)
+        self._pwm2.duty_u16(duty2)
+    except Exception:
+        pass</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ OPENCODE ═══ -->
+<section id="opencode">
+  <h2 style="border-bottom-color: var(--opencode);"><span style="color:var(--opencode)">◆</span> OpenCode AI Agent — 修正内容</h2>
+  <div class="ai-tabs">
+    <button class="ai-tab-btn opencode active" onclick="showPanel('opencode','o-high')">🔴 高優先度</button>
+    <button class="ai-tab-btn opencode" onclick="showPanel('opencode','o-med')">🟡 中優先度</button>
+    <button class="ai-tab-btn opencode" onclick="showPanel('opencode','o-low')">🟢 低優先度</button>
+  </div>
+  <div id="opencode-o-high" class="ai-panel active">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">🔴 高</span><span class="file-tag">teaching.py:158-166</span></div>
+      <h4>フラッシュ書き込み頻度</h4>
+      <p><code>save_to_json()</code> が <code>add_point()</code>、<code>delete_point()</code>、<code>clear()</code> のたびに即座にフラッシュ書き込み。フラッシュは通常10万回書き込みで劣化。</p>
+      <pre><code># 変更後: バッファリング + 変更フラグ
+def __init__(self, arm):
+    ...
+    self._dirty = False  # 変更フラグ追加
+
+def add_point(self, theta1, theta2, delay_ms=500, speed=0.0):
+    ...
+    self._points.append(pt)
+    self._count = len(self._points)
+    self._dirty = True   # フラグのみ設定 (即時書き込みしない)
+
+def save_pending(self):
+    if self._dirty:
+        self.save_to_json()
+        self._dirty = False</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">🔴 高</span><span class="file-tag">boot.py:26</span></div>
+      <h4>Wi-Fi セキュリティ — オープンネットワーク</h4>
+      <p><code>authmode=0</code> はオープンネットワーク。公共の場での使用は通信の傍受・不正アクセスが可能。</p>
+      <pre><code># 現状 (問題あり)
+ap.config(essid="zeni", authmode=0)  # OPEN
+
+# 修正後: WPA2-PSK設定
+ap.config(essid="zeni", authmode=0x4, password="makerline2024")</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">🔴 高</span><span class="file-tag">line_follower.py:204-232</span></div>
+      <h4>モーター制御コードの重複</h4>
+      <p><code>execute_turn_left_step()</code> と <code>step_motors()</code> で同じコードが重複。修正漏れのリスク。</p>
+      <pre><code># 変更後: step_motors() を再利用
+def execute_turn_left_step(self):
+    # 左モーター逆回転、右モーター正回転
+    self.step_motors(False, True)
+    time.sleep_us(config.TURN_STEP_DELAY)</code></pre>
+    </div>
+  </div>
+  <div id="opencode-o-med" class="ai-panel">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">🟡 中</span><span class="file-tag">web_server.py:75-83</span></div>
+      <h4>リクエスト解析の脆弱性</h4>
+      <p>malformed リクエストでクラッシュする可能性。</p>
+      <pre><code>def _parse_request(self, raw_req):
+    try:
+        req_str = raw_req.decode('utf-8', 'ignore').strip()
+        if not req_str:
+            return None, None, None
+        lines = req_str.split('\r\n')
+        if not lines:
+            return None, None, None
+        parts = lines[0].split(' ')
+        if len(parts) < 2:
+            return None, None, None
+        return parts[0], parts[1], req_str
+    except Exception:
+        return None, None, None</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">🟡 中</span><span class="file-tag">teaching.py:87-88</span></div>
+      <h4>カプセル化違反</h4>
+      <p>プライベート変数への直接アクセス。<code>arm.py</code> に <code>get_current_angles()</code> メソッドを追加して解決。</p>
+      <pre><code># 変更後: 公開メソッド経由で取得
+def record_current(self, delay_ms=500, speed=0.0):
+    t1, t2 = self._arm.get_current_angles()
+    return self.add_point(t1, t2, delay_ms, speed)</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">🟡 中</span><span class="file-tag">teaching.py / config.py</span></div>
+      <h4>定数の分散 — <code>MAX_TEACH_POINTS</code></h4>
+      <p><code>MAX_TEACH_POINTS = 32</code> が <code>teaching.py</code> にハードコード。設定変更時に複数ファイルを修正必要。<code>config.py</code> に移動して一元管理する。</p>
+    </div>
+  </div>
+  <div id="opencode-o-low" class="ai-panel">
+    <div class="card">
+      <ul style="list-style:none;padding:0">
+        <li style="padding:0.6rem 0;border-bottom:1px solid var(--border)"><strong>言語混在</strong> — コメント・エラーメッセージが英語/日本語混在。英語に統一推奨</li>
+        <li style="padding:0.6rem 0;border-bottom:1px solid var(--border)"><strong>パフォーマンス</strong> <span class="file-tag">main.py:48</span> — <code>time.sleep_us(500)</code> で約500Hz。センサー読み取り(~1kHz)とのバランスを最適化</li>
+        <li style="padding:0.6rem 0"><strong>ハードウェア依存</strong> <span class="file-tag">config.py</span> — ESP32-WROOM-32E専用ピン設定。他モデル対応の注記をドキュメントに追加</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ QWEN ═══ -->
+<section id="qwen">
+  <h2 style="border-bottom-color: var(--qwen);"><span style="color:var(--qwen)">◆</span> Qwen3.8-27B — 修正内容</h2>
+  <div class="ai-tabs">
+    <button class="ai-tab-btn qwen active" onclick="showPanel('qwen','q-critical')">🔴 Critical</button>
+    <button class="ai-tab-btn qwen" onclick="showPanel('qwen','q-high')">🟠 High</button>
+    <button class="ai-tab-btn qwen" onclick="showPanel('qwen','q-medium')">🟡 Medium</button>
+    <button class="ai-tab-btn qwen" onclick="showPanel('qwen','q-light')">🟢 軽微</button>
+  </div>
+  <div id="qwen-q-critical" class="ai-panel active">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">Critical-1</span><span class="file-tag">line_follower.py:188-202</span></div>
+      <h4>ライン追従の P 制御が完全に無効 + 補正符号が逆</h4>
+      <p><code>execute_tracking_speed()</code> はどこからも呼ばれず直進のみ。さらに Arduino 元版と補正符号が逆で、ラインから離れる正帰還になっている。</p>
+      <div class="note">
+        Arduino (<code>LineFollower.cpp</code>): <code>leftDelay = base + correction</code> / <code>rightDelay = base - correction</code><br>
+        MicroPython (現状): <code>left_delay = base - correction</code> / <code>right_delay = base + correction</code> ← <strong>逆！</strong>
+      </div>
+      <pre><code># 非ブロッキング差動ステップ (推奨修正案)
+def execute_tracking_step(self):
+    left_delay, right_delay = self.execute_tracking_speed()  # ← 符号修正済み
+    now_us = time.ticks_us()
+    if time.ticks_diff(now_us, self._left_next_step_us) >= 0:
+        self.pulse_left(forward=True)
+        self._left_next_step_us = now_us + left_delay
+    if time.ticks_diff(now_us, self._right_next_step_us) >= 0:
+        self.pulse_right(forward=True)
+        self._right_next_step_us = now_us + right_delay
+
+# execute_tracking_speed の符号修正 (Arduino 元版と一致)
+left_delay  = self._base_step_delay + correction   # 現状は - が逆
+right_delay = self._base_step_delay - correction   # 現状は + が逆</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">Critical-2</span><span class="file-tag">README.md / HANDOVER.md</span></div>
+      <h4><code>index.html</code> のアップロード手順が README/HANDOVER に無い</h4>
+      <p>アップロード手順が <strong>8個の .py のみ</strong>。この手順どおりだと <code>index.html</code> が存在せず、ダッシュボードが必ず <strong>500 Error</strong>。</p>
+      <div class="warning-note">修正: 両ドキュメントの <code>ampy put</code> リストに <code>ampy put index.html</code> を追加（コード変更不要）</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-critical">Critical-3</span><span class="file-tag">line_follower.py:113-121</span></div>
+      <h4>PASSING_LINE でステップ間隔ゲートが無効 → 約2倍速で暴走</h4>
+      <p><code>else: self.step_motors(True, True)</code> が毎 <code>update()</code>(≒0.5〜1ms間隔)で呼ばれ、<code>_last_step_time_us</code> による間隔制御が無い。</p>
+      <pre><code># 修正後: ゲート追加
+else:
+    now_us = time.ticks_us()
+    if time.ticks_diff(now_us, self._pass_last_step_us) >= self._base_step_delay:
+        self._pass_last_step_us = now_us
+        self.step_motors(True, True)</code></pre>
+    </div>
+  </div>
+  <div id="qwen-q-high" class="ai-panel">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">High-4</span><span class="file-tag">line_follower.py:64-134</span></div>
+      <h4>UART '1' が ARM_EXECUTING / PASSING_LINE を中断する</h4>
+      <p>アーム再生中に RPi から '1' が来ると即 TURN_LEFT 遷移。アームの待機ロジックが無効化される。</p>
+      <pre><code>def start_turn_left(self):
+    if self._state in (LineFollowerState.ARM_EXECUTING, LineFollowerState.PASSING_LINE):
+        print("[UART] Ignored '1' during arm/passing.")
+        return
+    ...</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">High-5</span><span class="file-tag">line_follower.py:136-138</span></div>
+      <h4>学習点が0個でもトリガーが発火し「無言で通過」する</h4>
+      <p><code>teaching.play()</code> の戻り値を無視して即 ARM_EXECUTING。点が0個だと何も実行せずに前進。</p>
+      <pre><code>def trigger_arm_teaching(self):
+    if not self._teaching.play(loop=False):
+        print("[LINE] No taught points. Ignoring marker line.")
+        self.stop()
+        return
+    self._state = LineFollowerState.ARM_EXECUTING</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-high">High-6</span><span class="file-tag">line_follower.py:90-100</span></div>
+      <h4>TURN_LEFT に最大時間タイムアウトが無い → 永遠に旋回する可能性</h4>
+      <p>ラインを一度も検知しない限り旋回し続ける。走行範囲外への暴走リスク。</p>
+      <pre><code># config.py に追加
+MAX_TURN_DURATION_MS = 5000
+
+# line_follower.py
+if elapsed >= config.MAX_TURN_DURATION_MS:
+    print("[LINE] Turn timeout. Stopping.")
+    self.stop()
+elif elapsed >= config.MIN_TURN_DURATION_MS and self._sensor_pattern != 0:
+    ...</code></pre>
+    </div>
+  </div>
+  <div id="qwen-q-medium" class="ai-panel">
+    <div class="card">
+      <div class="card-header"><span class="sev sev-medium">Medium-7</span><span class="file-tag">web_server.py:57-67</span></div>
+      <h4>Webサーバが主ループをブロックする</h4>
+      <p>クライアントが遅い場合、最大2秒間アーム補間・モータ駆動・他クライアント受付が停止。</p>
+      <div class="note">最小対応: <code>settimeout(2.0)</code> → <code>settimeout(0.5)</code> に短縮。本対応: 非ブロッキング状態機械化。</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-medium">Medium-8</span><span class="file-tag">web_server.py:71</span></div>
+      <h4>HTTP要求を1回だけ読み取る (完全受信ループなし)</h4>
+      <p>Content-Length を参照しないため、POST body がパケット分割されると JSON が途中切れ → <code>json.loads</code> 例外 → 無応答切断。</p>
+      <div class="note">修正: <code>Content-Length</code> をパースし、それだけ受信するまでループ（上限 512B で打ち切り）</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-medium">Medium-9</span><span class="file-tag">kinematics.py:59-96</span></div>
+      <h4>IK + 関節制限の相互作用で「到達可能なのに無反応」</h4>
+      <p>ダッシュボードのデフォルト目標 (x=120, y=80) は幾何学的に到達可能だが、elbow_up 解が t1≈-46° になり拒否される。MOVEボタンが何もせずに終わる。</p>
+      <div class="note">修正: <code>move_to()</code> で elbow_up が無効なら elbow_down も試み、両方無効の場合のみ False を返す。</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-medium">Medium-10</span><span class="file-tag">teaching.py:133-135</span></div>
+      <h4>STOP が進行中のアーム運動を止めない</h4>
+      <p>Web の STOP でトラッキングと再生は止まるが、アームは最後の目標点まで動き続ける。</p>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="sev sev-medium">Medium-11</span><span class="file-tag">teaching.py:87-88</span></div>
+      <h4>プライベート属性への直接アクセス</h4>
+      <pre><code># arm.py にゲッタを追加
+def get_theta1(self): return self._current_theta1
+def get_theta2(self): return self._current_theta2</code></pre>
+    </div>
+  </div>
+  <div id="qwen-q-light" class="ai-panel">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>箇所</th><th>内容</th><th>修正方針</th></tr></thead>
+        <tbody>
+          <tr><td>L-1</td><td><span class="file-tag">boot.py:26</span></td><td><code>authmode=0</code> は WLAN.config では no-op (デフォルトでオープン)</td><td>実機確認後に不要なら削除</td></tr>
+          <tr><td>L-2</td><td><span class="file-tag">arm.py:49-59</span></td><td><code>attach_servos()</code> が既存 PWM を deinit せず新規作成（重複チャネルの恐れ）</td><td>attach 前に旧 PWM を deinit</td></tr>
+          <tr><td>L-3</td><td><span class="file-tag">arm.py:194-195</span></td><td>オフセットで duty が [1638..7864] 外に出てもクランプなし</td><td><code>max(1638, min(7864, duty))</code></td></tr>
+          <tr><td>L-4</td><td><span class="file-tag">line_follower.py:37</span></td><td><code>hasattr(config, 'DIR_PIN')</code> は常に False のデッドチェック</td><td><code>config.LEFT_DIR_PIN</code> に直接変更</td></tr>
+          <tr><td>L-5</td><td><span class="file-tag">config.py:74</span></td><td><code>SERIAL_BAUDRATE = 9600</code> が未使用</td><td>削除または統一</td></tr>
+          <tr><td>L-6</td><td><span class="file-tag">index.html:62</span></td><td>サーボ表示が初回ポーリングまで "ON" と誤表示</td><td>初期値を "OFF" に変更</td></tr>
+          <tr><td>L-7</td><td><span class="file-tag">main.py:56-58</span></td><td>例外ループが 0.1s スリープで無限リトライ（ブートループの恐れ）</td><td>連続例外 N 回後に安全停止</td></tr>
+          <tr><td>L-8</td><td><code>__pycache__/</code></td><td>CPython 3.11 の .pyc（PC テスト産物）</td><td>ESP32 アップロード対象から除外</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PRIORITY ═══ -->
+<section id="priority">
+  <h2>🎯 全体優先度まとめ</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>優先度</th><th>問題</th><th>ファイル</th><th>指摘AI</th><th>推奨対応</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="sev sev-critical">🔴 Critical</span></td>
+          <td>P制御がデッドコード — ライン追従機能しない</td>
+          <td><span class="file-tag">line_follower.py</span></td>
+          <td>全4AI</td>
+          <td><code>execute_tracking_step</code> に P制御を組み込む</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-critical">🔴 Critical</span></td>
+          <td>P制御の補正符号が Arduino 元版と逆</td>
+          <td><span class="file-tag">line_follower.py</span></td>
+          <td>Qwen</td>
+          <td>left/right delay の符号を Arduino 版に合わせる</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-critical">🔴 Critical</span></td>
+          <td>PASSING_LINE のステップゲート欠落 → 2倍速暴走</td>
+          <td><span class="file-tag">line_follower.py</span></td>
+          <td>Qwen</td>
+          <td><code>_pass_last_step_us</code> でゲート制御</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-critical">🔴 Critical</span></td>
+          <td>index.html アップロード手順が README に無い</td>
+          <td><span class="file-tag">README.md</span></td>
+          <td>Qwen</td>
+          <td><code>ampy put index.html</code> を手順に追加</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-critical">🔴 Critical</span></td>
+          <td>IK Elbow Down 計算バグ</td>
+          <td><span class="file-tag">kinematics.py</span></td>
+          <td>Gemini</td>
+          <td><code>t1_rad = alpha - beta</code> に統一</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-high">🟠 High</span></td>
+          <td>モーター DIR 極性ミス（前進できずスピン）</td>
+          <td><span class="file-tag">line_follower.py</span></td>
+          <td>Gemini</td>
+          <td>対向配置に合わせ左HIGH/右LOW に修正</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-high">🟠 High</span></td>
+          <td>両モーター STEP パルス同時発生 — 電源ノイズリスク</td>
+          <td><span class="file-tag">line_follower.py</span></td>
+          <td>Claude</td>
+          <td>左右を交互に発行</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-high">🟠 High</span></td>
+          <td>UART '1' がアーム実行中を中断</td>
+          <td><span class="file-tag">line_follower.py</span></td>
+          <td>Qwen</td>
+          <td><code>start_turn_left()</code> にステートガード追加</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-high">🟠 High</span></td>
+          <td>TURN_LEFT にタイムアウトなし → 永遠に旋回</td>
+          <td><span class="file-tag">line_follower.py</span></td>
+          <td>Qwen</td>
+          <td><code>MAX_TURN_DURATION_MS</code> 追加</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-high">🟠 High</span></td>
+          <td>gc.collect() 毎リクエストでモーター脱調</td>
+          <td><span class="file-tag">web_server.py</span></td>
+          <td>Gemini</td>
+          <td>L172 の強制 GC を削除</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-high">🟠 High</span></td>
+          <td>サーボ PWM デューティのクランプ欠落</td>
+          <td><span class="file-tag">arm.py</span></td>
+          <td>Gemini, Qwen</td>
+          <td><code>max(1638, min(7864, duty))</code> でクランプ</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-high">🟠 High</span></td>
+          <td>Wi-Fi オープンネットワーク</td>
+          <td><span class="file-tag">boot.py</span></td>
+          <td>OpenCode</td>
+          <td>WPA2-PSK に変更</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-medium">🟡 Medium</span></td>
+          <td>POST ボディ不完全受信 / 不正JSON で無応答</td>
+          <td><span class="file-tag">web_server.py</span></td>
+          <td>全4AI</td>
+          <td>Content-Length パース + 受信ループ</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-medium">🟡 Medium</span></td>
+          <td>teaching.json 即時書き込み → フラッシュ摩耗</td>
+          <td><span class="file-tag">teaching.py</span></td>
+          <td>全4AI</td>
+          <td><code>_dirty</code> フラグでバッファリング</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-medium">🟡 Medium</span></td>
+          <td>IK 拒否でデフォルト座標 (120,80) に未到達</td>
+          <td><span class="file-tag">kinematics.py</span></td>
+          <td>Qwen</td>
+          <td>elbow_up 失敗時に elbow_down も試みる</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-medium">🟡 Medium</span></td>
+          <td>Pause/Resume のディレイ破綻</td>
+          <td><span class="file-tag">teaching.py</span></td>
+          <td>Gemini</td>
+          <td>残りディレイ時間を保持して再開</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-low">🟢 Low</span></td>
+          <td>プライベート属性直接アクセス / hasattr デッドチェック</td>
+          <td><span class="file-tag">teaching.py, web_server.py</span></td>
+          <td>Claude, OpenCode, Qwen</td>
+          <td>arm.py にゲッターメソッドを追加</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-low">🟢 Low</span></td>
+          <td>index.html の points 数が UI に表示されない</td>
+          <td><span class="file-tag">index.html</span></td>
+          <td>Claude</td>
+          <td>ポーリング結果を画面に反映</td>
+        </tr>
+        <tr>
+          <td><span class="sev sev-low">🟢 Low</span></td>
+          <td>サーボ初期表示が "ON" と誤表示</td>
+          <td><span class="file-tag">index.html:62</span></td>
+          <td>Qwen</td>
+          <td>初期値を "OFF" に変更</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>推奨修正順序</h3>
+  <div class="card">
+    <ol>
+      <li><strong>kinematics.py</strong> — IK Elbow Down バグ修正 (Gemini)</li>
+      <li><strong>line_follower.py</strong> — P制御の呼び出し・符号修正、DIR極性修正、PASSING_LINEゲート、タイムアウト追加、UART中断ガード</li>
+      <li><strong>README.md / HANDOVER.md</strong> — index.html アップロード手順追加 (Qwen)</li>
+      <li><strong>arm.py</strong> — PWMデューティクランプ追加、attach時のdeinit追加</li>
+      <li><strong>web_server.py</strong> — 強制GC削除、リクエスト堅牢化、settimeout短縮</li>
+      <li><strong>teaching.py</strong> — _dirty フラグによる書き込みバッファリング、Pause/Resume修正</li>
+      <li><strong>boot.py</strong> — WPA2-PSK設定</li>
+      <li><strong>index.html</strong> — UI表示の修正 (初期値、points表示)</li>
+    </ol>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>MakerLine Arm MicroPython — AIデバッグレポート統合版 | 作成日: 2026-09-02</p>
+  <p>解析モデル: Claude Sonnet 4.6 Thinking / Gemini 3.7 Flash / OpenCode AI Agent / Qwen3.8-27B</p>
+  <p style="margin-top:0.4rem;">本レポートは静的コード解析に基づいています。実際の修正前にテスト環境での検証を推奨します。</p>
+</footer>
+
+<script>
+function showPanel(prefix, panelId) {
+  const section = document.getElementById(prefix);
+  if (!section) return;
+  section.querySelectorAll('[id^="' + prefix + '-"]').forEach(el => el.classList.remove('active'));
+  const target = document.getElementById(prefix + '-' + panelId);
+  if (target) target.classList.add('active');
+  section.querySelectorAll('.ai-tab-btn').forEach(btn => btn.classList.remove('active'));
+  if (event && event.target) event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
