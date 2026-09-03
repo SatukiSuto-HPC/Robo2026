@@ -26,9 +26,8 @@
 2. `boot.py`: 起動時のWi-Fiアクセスポイント設定（`zeni` / `hogehoge`）と初期化
 3. `line_follower.py`: 4連センサのステータス取得、DRV8825駆動ロジック、ライントレース制御
 4. `web_server.py`: MicroPython socket HTTPサーバー（フロントエンドUI配信、JSON API提供）
-5. `uart_relay.py`: 起動時の Arduino Uno (UART1) への初期化データ送信処理
-6. `main.py`: 非同期協調マルチタスクによるシステムのメインイベントループ
-7. `index.html`: リッチで洗練されたダークテーマのフロントエンドダッシュボード画面
+5. `main.py`: 非同期協調マルチタスクによるシステムのメインイベントループ
+6. `index.html`: リッチで洗練されたダークテーマのフロントエンドダッシュボード画面
 
 ---
 
@@ -85,7 +84,6 @@ ampy put config.py
 ampy put boot.py
 ampy put line_follower.py
 ampy put web_server.py
-ampy put uart_relay.py
 ampy put main.py
 ampy put index.html
 ```
