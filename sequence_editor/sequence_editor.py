@@ -27,6 +27,7 @@ TASK_COLORS = {
     "ARM_MOVE":   "#cba6f7",
     "DRIVE":      "#a6e3a1",
     "WAIT":       "#f9e2af",
+    "WAIT_QR":    "#eba0ac",
     "STOP":       "#f38ba8",
     "GOAL":       "#fab387",
 }
@@ -181,9 +182,8 @@ class SequenceEditorApp(tk.Tk):
 
         ttk.Label(cf, text="種別:").grid(row=1, column=0, sticky="e", padx=5, pady=4)
         self.var_task_type = tk.StringVar()
-        cb = ttk.Combobox(cf, textvariable=self.var_task_type, width=14, state="readonly",
-                          values=["LINE_TRACE","ARM_MOVE","DRIVE","WAIT","STOP","GOAL"])
-        cb.grid(row=1, column=1, sticky="w", pady=4)
+        cb = ttk.Combobox(cf, textvariable=self.var_task_type, width=14, state='readonly', values=['LINE_TRACE','ARM_MOVE','DRIVE','WAIT','WAIT_QR','STOP','GOAL'])
+        cb.grid(row=1, column=1, sticky='w', pady=4)
         cb.bind("<<ComboboxSelected>>", self.on_type_change)
 
         self.dyn = ttk.Frame(self.prop_lf)
@@ -319,8 +319,9 @@ class SequenceEditorApp(tk.Tk):
         defaults = {
             "LINE_TRACE": {"trigger": "QR", "qr_data": ""},
             "ARM_MOVE":   {"arm_s1": 90, "arm_s2": 90, "wait_ms": 1000},
-            "DRIVE":      {"direction": "FORWARD", "duration_ms": 2000, "speed": 1200},
-            "WAIT":       {"wait_ms": 1000},
+            'DRIVE':      {'direction': 'FORWARD', 'duration_ms': 2000, 'speed': 1200},
+            'WAIT':       {'wait_ms': 1000},
+            'WAIT_QR':    {'qr_data': ''},
         }
         for k, v in defaults.get(nt, {}).items():
             task.setdefault(k, v)
@@ -354,8 +355,9 @@ class SequenceEditorApp(tk.Tk):
         {
             "LINE_TRACE": self._dyn_line_trace,
             "ARM_MOVE":   self._dyn_arm_move,
-            "DRIVE":      self._dyn_drive,
-            "WAIT":       self._dyn_wait,
+            'DRIVE':      self._dyn_drive,
+            'WAIT':       self._dyn_wait,
+            'WAIT_QR':    self._dyn_wait_qr,
         }.get(stype, lambda t: ttk.Label(self.dyn, text="追加設定なし",
                                           foreground="gray").pack(pady=20))(task)
 
@@ -471,6 +473,15 @@ class SequenceEditorApp(tk.Tk):
         vw.trace_add("write", on_w)
         tk.Entry(f, textvariable=vw, bg=ENTRY_BG, fg=ENTRY_FG,
                  insertbackground=FG_COLOR, width=10).grid(row=0, column=1, sticky="w")
+
+    def _dyn_wait_qr(self, task):
+        f = ttk.Frame(self.dyn); f.pack(fill=tk.X, padx=5)
+        ttk.Label(f, text='QRデータ（空=任意QR）:').grid(row=0, column=0, sticky='e', pady=6, padx=5)
+        vq = tk.StringVar(value=task.get('qr_data', ''))
+        def on_q(*a): task['qr_data'] = vq.get()
+        vq.trace_add('write', on_q)
+        tk.Entry(f, textvariable=vq, bg=ENTRY_BG, fg=ENTRY_FG, insertbackground=FG_COLOR, width=22).grid(row=0, column=1, sticky='w')
+        ttk.Label(f, text='※ この文字列のQRを認識するまでその場で待機', foreground='gray', font=('Helvetica', 8)).grid(row=1, column=1, sticky='w')
 
     # ── タスク操作 ────────────────────────────────────────────────────────────
     def add_task(self):
@@ -623,6 +634,11 @@ class SequenceEditorApp(tk.Tk):
             "                self.lf.stop()\n"
             "                print(f\"[TASK] QR照合OK: '{expected}' -> 次のステップへ\")\n"
             "                self._next_step()\n"
+            "        elif self.sub_state == 'WAIT_QR_ONLY':\n"
+            "            expected = step.get('qr_data', '')\n"
+            "            if self.uart.consume_trigger(expected if expected else None):\n"
+            "                print(f\"[TASK] QRフラグ受信: '{expected}' -> 次のステップへ\")\n"
+            "                self._next_step()\n"
             "        elif self.sub_state == 'WAIT_ALL_LINE':\n"
             "            if self.lf.get_sensor_pattern() == 0x0F:\n"
             "                self.lf.stop(); self._next_step()\n"
@@ -645,6 +661,9 @@ class SequenceEditorApp(tk.Tk):
             "        elif stype == 'DRIVE':\n"
             "            self.lf.start_drive(step.get('direction', 'FORWARD'), step.get('speed', None))\n"
             "            self.wait_start = time.ticks_ms(); self.sub_state = 'WAIT_DRIVE'\n"
+            "        elif stype == 'WAIT_QR':\n"
+            "            self.lf.stop()\n"
+            "            self.sub_state = 'WAIT_QR_ONLY'\n"
             "        elif stype == 'WAIT':\n"
             "            self.lf.stop()\n"
             "            self.wait_start = time.ticks_ms(); self.sub_state = 'WAIT_WAIT'\n"
