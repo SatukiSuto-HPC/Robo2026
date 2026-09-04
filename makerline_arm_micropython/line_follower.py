@@ -164,8 +164,8 @@ class LineFollower:
         if active_count > 0:
             self._sensor_error = weight
         else:
-            # Maintain previous error if lost briefly
-            pass
+            # ラインを見失った場合は直進する
+            self._sensor_error = 0
 
 
 
