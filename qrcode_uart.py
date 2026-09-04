@@ -87,11 +87,13 @@ def main():
                         qr_data = obj.data.decode('utf-8')
                         print(f"Data: {qr_data}")
 
-                    # UARTで '1' を送信 (QRコード検出トリガー)
+                    # UARTでQRコードの内容をそのまま送信
+                    # ※ uart_receiver.py 側で内容照合を行うため、'1' ではなく文字列を送信
                     if ser and ser.is_open:
                         try:
-                            ser.write(b'1\n')
-                            print("Sent '1' via UART to ESP32.")
+                            qr_payload = (qr_data + '\n').encode('utf-8')
+                            ser.write(qr_payload)
+                            print(f"Sent QR data via UART: '{qr_data}'")
                         except Exception as e:
                             print(f"[ERR] Lost connection during write: {e}")
                             ser.close()
