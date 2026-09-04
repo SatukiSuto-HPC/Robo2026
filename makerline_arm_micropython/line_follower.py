@@ -3,7 +3,7 @@
 # =============================================================================
 
 import time
-from machine import Pin, UART
+from machine import Pin
 import config
 
 class LineFollowerState:
@@ -22,8 +22,6 @@ class LineFollower:
         self._line_detect_start_time = 0
         self._has_triggered_on_current_line = False
         self._turn_start_time = 0
-        self.last_uart_char = None  # 追加: 最後に受信したQR/UART文字を保持
-
         self._last_step_time_us = time.ticks_us()
         # [FIX] Independent per-motor step schedulers for differential P-control
         self._left_next_step_us = time.ticks_us()
@@ -41,15 +39,6 @@ class LineFollower:
         self._sensor_s1 = Pin(config.SENSOR_PIN_S1, Pin.IN)
         self._sensor_s0 = Pin(config.SENSOR_PIN_S0, Pin.IN)
 
-        # UART for Raspberry Pi commands (e.g., QR Code trigger)
-        self._uart = None
-        if hasattr(config, 'RPI_UART_TX_PIN') and hasattr(config, 'RPI_UART_RX_PIN'):
-            try:
-                from machine import UART
-                self._uart = UART(config.RPI_UART_ID, baudrate=config.RPI_UART_BAUDRATE, tx=Pin(config.RPI_UART_TX_PIN), rx=Pin(config.RPI_UART_RX_PIN))
-            except Exception as e:
-                print(f"[UART ERROR] {e}")
-
     def begin(self):
         self.stop()
         try:
@@ -61,25 +50,7 @@ class LineFollower:
             pass
 
     def update(self):
-        # 1. Read UART for external commands
-        if self._uart and self._uart.any():
-            try:
-                data = self._uart.read()
-                if data:
-                    for b in data:
-                        char_data = chr(b)
-                        self.last_uart_char = char_data  # 状態遷移などで使えるように保存
-                        
-                        if char_data == '1':
-                            print("[UART] Received '1' (QR Code Detected)")
-                            # タスクモードのトリガーとして利用するため左旋回は無効化
-                        elif char_data == '0':
-                            print("[UART] Received '0' -> Stopping cart.")
-                            self.stop()
-            except Exception:
-                pass
-
-        # 2. State Machine Update
+        # State Machine Update
         if self._state == LineFollowerState.IDLE:
             return
 

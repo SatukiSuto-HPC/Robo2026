@@ -20,12 +20,12 @@
 # =============================================================================
 
 import time  # 時間計測およびウェイト（sleep）用標準モジュール
-import sys   # システム情報取得およびエラー出力用標準モジュール
-
 # 自作制御モジュールのインポート
 from line_follower import LineFollower  # ライントレース・モーター駆動制御クラス
 from web_server import WebServer        # ブラウザ操作用ノンブロッキングWebサーバークラス
-from uart_sequence_controller import UARTSequenceController # UART受信回数に応じたシーケンス制御クラス
+from uart_receiver import UartEventReceiver
+from task_mode import TaskSequenceMode
+from a_mu import ArmController
 
 
 def main():
@@ -40,16 +40,18 @@ def main():
     # -------------------------------------------------------------------------
     # ライントレース制御クラスのインスタンスを生成（モーター・センサの論理初期化）
     line_follower = LineFollower()
+    uart_receiver = UartEventReceiver()
+    arm_controller = ArmController()
+    if not arm_controller.begin():
+        print("[INIT ERROR] Arduino arm UART is unavailable. Stopping startup.")
+        return
 
     # Webサーバーのインスタンス生成
     # ※WebブラウザUIから走行状態の変更やパラメータ操作ができるよう、
     #   line_follower インスタンスへの参照を渡しています。
     web_server = WebServer(line_follower)
 
-    # UARTシーケンスコントローラーのインスタンス生成
-    sequence_controller = UARTSequenceController(line_follower)
-
-
+    task_mode = TaskSequenceMode(line_follower, arm_controller, uart_receiver)
 
     # -------------------------------------------------------------------------
     # 2. ハードウェア・ペリフェラルの初期化と通信開始 (Begin Hardware)
@@ -59,11 +61,6 @@ def main():
 
     # Wi-Fiソケットの作成とバインド、HTTPリスニング待機状態への遷移
     web_server.begin()
-
-    # シーケンスコントローラーの開始
-    sequence_controller.begin()
-
-
 
     print("[MAIN LOOP] Entering cooperative multitasking loop...")
 
@@ -76,16 +73,14 @@ def main():
         try:
             # --- タスク1: ライントレース制御・センサ読み取り ---
             # センサ値の取得、ステートマシン更新、ステッピングモーターのパルス出力を行います。
+            uart_receiver.update()
+            task_mode.update()
             line_follower.update()
+            arm_controller.update()
 
             # --- タスク2: Webサーバーのリクエスト処理 ---
             # クライアントからの接続要求やHTTPリクエスト（REST API・UI画面配信）をノンブロッキングで処理します。
             web_server.update()
-
-            # --- タスク3: UART受信回数に応じた段階的動作シーケンス処理 ---
-            sequence_controller.update()
-            
-
 
             # --- タスク4: CPU資源の譲渡（Cooperative Yield） ---
             # マイコンのバックグラウンド処理（Wi-FiスタックやGC等）が詰まるのを防ぐため、
@@ -98,7 +93,7 @@ def main():
             # - 走行・トレース中 (TRACKING等):
             #   ステッピングモーターのパルス間隔（マイクロ秒単位）の乱れを防ぐため、
             #   最小限の10μsスリープのみを挟み、最大ループ速度を維持します。
-            if line_follower.get_state() == 0 and sequence_controller.get_state() == 0:  # 停止/待機中
+            if line_follower.get_state() == 0 and not task_mode.is_active:  # 停止/待機中
                 time.sleep_ms(10)  # 10ミリ秒スリープ（省電力・他処理優先）
             else:
                 time.sleep_us(10)  # 10マイクロ秒スリープ（高精度パルス生成優先）

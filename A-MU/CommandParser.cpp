@@ -40,9 +40,14 @@ void CommandParser::parseAndExecute(const String& rawCmd) {
     if (upperCmd.startsWith("ARM:") || upperCmd.startsWith("ARM1:") || upperCmd.startsWith("ARM2:")) {
         int idx = upperCmd.indexOf(':');
         upperCmd = upperCmd.substring(idx + 1);
+        cmd = upperCmd;
     }
 
     // 1. システム & ゼロ点コマンド
+    if (upperCmd == "PING") {
+        _serial.println(F("ESP32_MAKERLINE_ARM_ACK"));
+        return;
+    }
     if (upperCmd == "HELP" || upperCmd == "?") {
         printHelp();
         return;

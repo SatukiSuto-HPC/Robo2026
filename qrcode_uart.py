@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 import serial
 import serial.tools.list_ports
 import time
@@ -89,7 +90,7 @@ def main():
                     # UARTで '1' を送信 (QRコード検出トリガー)
                     if ser and ser.is_open:
                         try:
-                            ser.write(b'1')
+                            ser.write(b'1\n')
                             print("Sent '1' via UART to ESP32.")
                         except Exception as e:
                             print(f"[ERR] Lost connection during write: {e}")
@@ -107,7 +108,7 @@ def main():
                 points = obj.polygon
                 if len(points) > 4:
                     hull = cv2.convexHull(
-                        cv2.array([(p.x, p.y) for p in points], dtype=cv2.float32)
+                        np.array([(p.x, p.y) for p in points], dtype=np.float32)
                     )
                     points = hull
                 

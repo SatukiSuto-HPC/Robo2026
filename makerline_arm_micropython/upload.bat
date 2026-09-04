@@ -15,6 +15,22 @@ echo Uploading line_follower.py...
 ampy -p COM15 -d 1 put line_follower.py
 ping 127.0.0.1 -n 2 > nul
 
+echo Uploading uart_receiver.py...
+ampy -p COM15 -d 1 put uart_receiver.py
+ping 127.0.0.1 -n 2 > nul
+
+echo Uploading task_mode.py...
+ampy -p COM15 -d 1 put task_mode.py
+ping 127.0.0.1 -n 2 > nul
+
+echo Uploading a-mu.py...
+ampy -p COM15 -d 1 put a-mu.py
+ping 127.0.0.1 -n 2 > nul
+
+echo Uploading a_mu.py...
+ampy -p COM15 -d 1 put a_mu.py
+ping 127.0.0.1 -n 2 > nul
+
 echo Uploading web_server.py...
 ampy -p COM15 -d 1 put web_server.py
 ping 127.0.0.1 -n 2 > nul
