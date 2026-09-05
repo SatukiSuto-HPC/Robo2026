@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 import serial
 import serial.tools.list_ports
 import time
@@ -86,11 +87,13 @@ def main():
                         qr_data = obj.data.decode('utf-8')
                         print(f"Data: {qr_data}")
 
-                    # UARTで '1' を送信 (QRコード検出トリガー)
+                    # UARTでQRコードの内容をそのまま送信
+                    # ※ uart_receiver.py 側で内容照合を行うため、'1' ではなく文字列を送信
                     if ser and ser.is_open:
                         try:
-                            ser.write(b'1')
-                            print("Sent '1' via UART to ESP32.")
+                            qr_payload = (qr_data + '\n').encode('utf-8')
+                            ser.write(qr_payload)
+                            print(f"Sent QR data via UART: '{qr_data}'")
                         except Exception as e:
                             print(f"[ERR] Lost connection during write: {e}")
                             ser.close()
@@ -107,7 +110,7 @@ def main():
                 points = obj.polygon
                 if len(points) > 4:
                     hull = cv2.convexHull(
-                        cv2.array([(p.x, p.y) for p in points], dtype=cv2.float32)
+                        np.array([(p.x, p.y) for p in points], dtype=np.float32)
                     )
                     points = hull
                 

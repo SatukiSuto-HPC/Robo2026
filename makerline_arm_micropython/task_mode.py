@@ -10,9 +10,10 @@
 import time
 
 class TaskSequenceMode:
-    def __init__(self, line_follower, arm_controller):
+    def __init__(self, line_follower, arm_controller, uart_receiver):
         self.lf = line_follower
         self.arm = arm_controller
+        self.uart = uart_receiver
         self.current_state = 0
         self.state_start_time = 0
         self.is_active = False
@@ -111,7 +112,13 @@ class TaskSequenceMode:
         メインループから定期的に呼び出される更新処理。
         各待機ステート中に、センサー等の条件を満たしたか判定し、次のアクションへ遷移させます。
         """
+        if self.uart.consume_stop():
+            self.stop()
+            return
+
         if not self.is_active:
+            if self.uart.consume_trigger():
+                self.start()
             return
             
         now = time.ticks_ms()
@@ -128,11 +135,9 @@ class TaskSequenceMode:
             # 台前に到達したか？をQRコード（UART経由）の受信で判定する
             # qrcode_uart.py はQRコードを検知すると '1' を送信します。
             # ---------------------------------------------------------
-            if self.lf.last_uart_char is not None:
-                if self.lf.last_uart_char == '1':
-                    print("[TASK] QRコード ('1') を検知しました。台前に到着と判定します。")
-                    self.lf.last_uart_char = None  # フラグをクリア
-                    self.transition_to("STEP_2")
+            if self.uart.consume_trigger():
+                print("[TASK] QRコード ('1') を検知しました。台前に到着と判定します。")
+                self.transition_to("STEP_2")
                 
         elif self.current_state == "WAIT_MOVE_FORWARD":
             # 把持位置までの微速前進が終わったか？ (仮で2秒前進したら完了とする)
@@ -154,11 +159,9 @@ class TaskSequenceMode:
             # 降ろす目的地に到達したか？をQRコード（UART経由）の受信で判定する
             # qrcode_uart.py はQRコードを検知すると '1' を送信します。
             # ---------------------------------------------------------
-            if self.lf.last_uart_char is not None:
-                if self.lf.last_uart_char == '1':
-                    print("[TASK] QRコード ('1') を検知しました。目的地に到着と判定します。")
-                    self.lf.last_uart_char = None  # フラグをクリア
-                    self.transition_to("STEP_6")
+            if self.uart.consume_trigger():
+                print("[TASK] QRコード ('1') を検知しました。目的地に到着と判定します。")
+                self.transition_to("STEP_6")
                 
         elif self.current_state == "WAIT_ARM_RELEASE":
             # アームが開ききるのを待つ (仮で1秒待機)

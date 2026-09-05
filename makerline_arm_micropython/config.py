@@ -41,7 +41,7 @@ BASE_STEP_DELAY = 1200  # 基本ステップ間隔 (マイクロ秒)
 MIN_STEP_DELAY = 400    # [変更] 600 -> 400 (カーブ外輪の最高速度アップ)
 MAX_STEP_DELAY = 4000   # [変更] 2500 -> 4000 (カーブ内輪の最低速度ダウン)
 
-LINE_KP = 250.0         # [変更] 150.0 -> 250.0 (旋回の反応をアグレッシブに)
+LINE_KP = 350.0         # [変更] 250.0 -> 350.0 (旋回の反応をさらにアグレッシブに)
 
 # 全センサ検知パターン (0x0F = 2進数 1111: 全センサがライン/マーカー上)
 ALL_LINE_DETECT_PATTERN = 0x0F
@@ -50,11 +50,12 @@ ALL_LINE_DEBOUNCE_MS = 80
 AUTO_RESUME_TRACKING_AFTER_TEACH = True
 LINE_PASS_DURATION_MS = 600
 
-TURN_STEP_DELAY = 1200
-ARC_TURN_INNER_DELAY = 4000   # 緩旋回(アークターン)時の内輪ディレイ (値が大きい = 内輪が遅い = より急な旋回)
+TURN_STEP_DELAY = 800         # [変更] 1200 -> 800 (鋭角カーブで外輪を速く回す)
+ARC_TURN_INNER_DELAY = 6000   # [変更] 4000 -> 6000 (緩旋回時の内輪をさらに遅くし、小回りさせる)
 MIN_TURN_DURATION_MS = 200
 MAX_TURN_DURATION_MS = 5000   # [修正] 安全タイムアウト: ラインが見つからない場合、5秒後に旋回を停止
 
 
 # --- 通信設定 ---
 SERIAL_BAUDRATE = 9600
+MOTOR_TRIM = -250
